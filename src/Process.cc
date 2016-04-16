@@ -682,11 +682,13 @@ double Process::calc_marginal_gain_offline_clique(int user_index, int event_inde
 		}
 	}
 	
+	/*
 	if (event_has_other_users) {
 		result /= 3.0;
 	} else {
 		result *= 0.5;
 	}
+	*/
 	return result;
 }
 
@@ -714,11 +716,13 @@ double Process::calc_marginal_gain_offline_cut(int user_index, int event_index)
 		}
 	}
 
+	/*
 	if (event_has_other_users) {
 		result /= 3.0;
 	} else {
 		result *= 0.5;
 	}
+	*/
 
 	return result;
 }
@@ -731,13 +735,13 @@ double Process::calc_marginal_gain_online_clique(int user_index, int event_index
 		result += 1.0 / temp;
 	}
 	result += similarity_user_event[user_index][event_index];
-	return result * 0.5;
+	return result;
 }
 
 double Process::calc_marginal_gain_online_clique(int user_index, int neighbor_index, int event_index){
-	double result = 2.0 * calc_marginal_gain_online_clique(user_index, event_index);
+	double result = calc_marginal_gain_online_clique(user_index, event_index);
 	result += weight_user_user[user_index][neighbor_index];
-	return result / 3.0;
+	return result;
 }
 
 double Process::calc_marginal_gain_online_cut(int user_index, int event_index){
@@ -748,13 +752,13 @@ double Process::calc_marginal_gain_online_cut(int user_index, int event_index){
 	} else {
 		result += 1.0 / sigma;
 	}
-	return result * 0.5;
+	return result;
 }
 	
 double Process::calc_marginal_gain_online_cut(int user_index, int neighbor_index, int event_index){
-	double result = 2.0 * calc_marginal_gain_online_cut(user_index, event_index);
+	double result = calc_marginal_gain_online_cut(user_index, event_index);
 	result += weight_user_user[user_index][neighbor_index];
-	return result / 3.0;
+	return result;
 }
 
 
