@@ -28,13 +28,15 @@ int main(const int argc, const char** argv)
 		return 0;
 	}
 
+	string line;
 	// Read the first line
+	getline(ifs, line, '\n');
 	int events, users;
-	ifs >> events >> users;
+	stringstream sstr(line);
+	sstr >> events >> users;
 	ofs << events << " " << users << endl;
 
 	// Read the following 2*users lines
-	string line;
 	for(int i = 0; i < 2*users; i++){
 		getline(ifs, line, '\n');
 		stringstream sstr(line);
