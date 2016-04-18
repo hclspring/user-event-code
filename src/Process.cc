@@ -5,6 +5,8 @@ using namespace std;
 Process::Process(){
 	num_users = -1;
 	num_events = -1;
+	cut_cost = -1;
+	clique_cost = -1;
 }
 
 Process::~Process(){
@@ -292,9 +294,32 @@ bool Process::write_assignment_costs(string filename)
 		return false;
 	}
 
+	if (check_assignments_feasible() == false) {
+		ofs << "WARNING: This assignment is NOT feasible." << endl;
+	}
 	ofs << "cut_cost=" << cut_cost << endl;
 	ofs << "clique_cost=" << clique_cost << endl;
 	return true;
+}
+
+bool Process::write_assignment_costs(string filename, string type)
+{
+	ofstream ofs(filename.c_str());
+	if(ofs.fail()){
+		cerr << "Write file " << filename << " error." << endl;
+		return false;
+	}
+
+	if (check_assignments_feasible() == false) {
+		ofs << "WARNING: This assignment is NOT feasible." << endl;
+	}
+	if (type.compare("cut") == 0) {
+		ofs << "cut_cost=" << cut_cost << endl;
+	} else {
+		ofs << "clique_cost=" << clique_cost << endl;
+	}
+	return true;
+
 }
 
 bool Process::write_arrival_sequence(string filename)
@@ -372,6 +397,57 @@ void Process::calc_assignments_cut_offline()
 		}
 	}
 }
+
+void Process::calc_assignments_exhaustive_offline(const std::string & kind, const double & alpha, const double & beta, const double & gamma)
+{
+	bool use_cut;
+	if (kind.compare("cut") == 0) {
+		use_cut = true;
+	} else {
+		use_cut = false;
+	}
+
+	vector<int> optimal_user_affinities;
+	double optimal_cost;
+	double current_cost;
+	if (initialize_exhaustive_first_feasible_assignments()) {
+		if (use_cut) {
+			current_cost = calc_cut_cost(alpha, beta, gamma);
+			optimal_cost = current_cost;
+		} else {
+			current_cost = calc_clique_cost(alpha, beta, gamma);
+			optimal_cost = current_cost;
+		}
+
+		while (find_exhaustive_next_feasible_assignments()) {
+			if (use_cut) {
+				current_cost = calc_cut_cost(alpha, beta, gamma);
+				if (current_cost < optimal_cost) {
+					optimal_cost = current_cost;
+					optimal_user_affinities = user_affinities;
+				}
+			} else {
+				current_cost = calc_clique_cost(alpha, beta, gamma);
+				if (current_cost > optimal_cost) {
+					optimal_cost = current_cost;
+					optimal_user_affinities = user_affinities;
+				}
+			}
+		}
+		
+		if (use_cut) {
+			cut_cost = optimal_cost;
+			clique_cost = 0;
+		} else {
+			cut_cost = 0;
+			clique_cost = optimal_cost;
+		}
+	} else {
+		cut_cost = -1;
+		clique_cost = -1;
+	}
+}
+
 
 void Process::calc_assignments_clique_online()
 {
@@ -539,6 +615,23 @@ bool Process::assign(int user, int event){
 		return true;
 	}
 }
+
+/*
+bool Process::change_assignment(int user, int event){
+	assert(user >= 0 && user < num_users);
+	assert(event >= 0 && event < num_events);
+	if (user_affinities[user] < 0 || user_affinities[user] == event) {
+		return false;
+	} else if (event_users[event].size() >= events[event].get_upper_capacity()) {
+		return false;
+	} else {
+		event_users[user_affinities[user]].erase(user);
+		user_affinities[user] = event;
+		event_users[event].insert(user);
+		return true;
+	}
+}
+*/
 
 void Process::read_user_event_count(ifstream &ifs) {
 	string line;
@@ -761,5 +854,84 @@ double Process::calc_marginal_gain_online_cut(int user_index, int neighbor_index
 	return result;
 }
 
+bool Process::initialize_exhaustive_first_feasible_assignments() {
+	initialize_null_assignments();
 
+	int event = 0;
+	bool assign_success;
+	for (int user = 0; user < num_users && event < num_events; ++user) {
+		assign_success = assign(user, event);
+		if (assign_success == false) {
+			do {
+				++event;
+				assign_success = assign(user, event);
+			} while (assign_success == false && event < num_events);
+		}
+	}
+	if (user_affinities[num_users - 1] >= 0) {
+		return true;
+	} else {
+		return false;
+	}
+}
 
+bool Process::find_exhaustive_next_feasible_assignments() {
+	vector<int> user_asn = user_affinities; //把当前解保存下来
+	bool feasible = true; //判断找到的解是不是可行解
+	do {
+		// 重复循环直到找到一个解满足所有活动的参与人数都不超过各自活动的人数限制
+		// 此循环的重复过程类似一个有num_users位的数字（num_events进制数）从当前值开始不断递增加1的过程
+		int site = user_asn.size() - 1; //site指代末位数
+		if (user_asn[site] == num_events - 1) { //末位数达到num_events-1，类似十进制数中的9，需要进位
+			// 进位
+			while (user_asn[site] == num_events - 1) { //重复向前进位直到一位不是num_events-1的数（类似十进制中的1299，需要找到百位再停止
+				user_asn[site] = 0;
+				--site;
+			}
+			if (site < 0) { //最高位也是num_events-1，即所有位都是num_events-1，达到最大数字，说明没能找到下一个可行解
+				return false;
+			} else {
+				++user_asn[site]; //进位
+			}
+		} else {
+			++user_asn[site]; //直接+1
+		}
+
+		// 检查此解的可行性
+		vector<int> events_size;
+		events_size.resize(num_events, 0);
+		for (int i = 0; i < num_users; ++i) {
+			++events_size[user_asn[i]];
+		}
+		feasible = true;
+		for (int i = 0; i < events_size.size(); ++i) {
+			if (events_size[i] > events[i].get_upper_capacity()) {
+				feasible = false;
+			}
+		}
+	} while (feasible == false);
+
+	// 根据找到的可行解进行分配活动
+	initialize_null_assignments();
+	for (int user = 0; user < num_users; ++user) {
+		assign(user, user_asn[user]);
+	}
+	return true;
+}
+
+bool Process::check_assignments_feasible() {
+	if (user_affinities.size() != num_users || event_users.size() != num_events) {
+		return false;
+	}
+	for (int i = 0; i < user_affinities.size(); ++i) {
+		if (user_affinities[i] < 0 || user_affinities[i] >= num_users) {
+			return false;
+		}
+	}
+	for (int i = 0; i < event_users.size(); ++i) {
+		if (event_users[i].size() > events[i].get_upper_capacity()) {
+			return false;
+		}
+	}
+	return true;
+}

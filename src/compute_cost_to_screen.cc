@@ -8,22 +8,23 @@ int main(const int argc, const char** argv)
 {
 	enum AlgoType {CLIQUE, CUT};
 	if(argc < 7){
-		cerr << "Usage: " << argv[0] << " INPUT_FILE ASSIGNMENT_FILE TYPE ALPHA BETA GAMMA" << endl;
+		cerr << "Usage: " << argv[0] << " INPUT_FILE ASSIGNMENT_FILE ALPHA BETA GAMMA TYPE" << endl;
+		cerr << " Note: TYPE have two possible values: cut, or clique." << endl;
 		return 0;
 	}
 
 	string input_file = argv[1];
 	string assignment_file = argv[2];
+	double alpha = atof(argv[3]);
+	double beta = atof(argv[4]);
+	double gamma = atof(argv[5]);
+
 	AlgoType type;
-	if (strcmp(argv[3], "CLIQUE") == 0) {
+	if (strcmp(argv[6], "clique") == 0) {
 		type = CLIQUE;
 	} else {
 		type = CUT;
 	}
-
-	double alpha = atof(argv[4]);
-	double beta = atof(argv[5]);
-	double gamma = atof(argv[6]);
 
 	Process p;
 	p.read_preprocessed_data(input_file);

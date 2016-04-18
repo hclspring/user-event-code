@@ -65,12 +65,14 @@ public:
 	bool write_preprocessed_data(std::string filename);
 	bool write_assignment_result(std::string filename);
 	bool write_assignment_costs(std::string filename);
+	bool write_assignment_costs(std::string filename, std::string type);
 	bool write_arrival_sequence(std::string filename);
 
 
 	// assignment algorithm implementation
 	void calc_assignments_clique_offline();
 	void calc_assignments_cut_offline();
+	void calc_assignments_exhaustive_offline(const std::string & kind, const double & alpha, const double & beta, const double & gamma);
 	void calc_assignments_clique_online();
 	void calc_assignments_cut_online();
 
@@ -83,6 +85,7 @@ private:
 	void initialize_null_assignments();
 	// 分配某个用户去某个活动; 该用户必须尚未分配、且活动尚未人满i，否则返回false
 	bool assign(int user, int event);
+//	bool change_assignment(int user, int event);
 
 	// 读文件并做相应操作
 	void read_user_event_count(std::ifstream &ifs);//读人数、活动数
@@ -114,8 +117,11 @@ private:
 	void calc_similarity_matrix();
 	void calc_weight_matrix();
 
-
-
+	bool initialize_exhaustive_first_feasible_assignments();
+	bool find_exhaustive_next_feasible_assignments();
+	
+	// 检查当前的分配是否符合要求
+	bool check_assignments_feasible();
 
 };
 
