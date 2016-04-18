@@ -877,6 +877,7 @@ bool Process::initialize_exhaustive_first_feasible_assignments() {
 
 bool Process::find_exhaustive_next_feasible_assignments() {
 	vector<int> user_asn = user_affinities; //把当前解保存下来
+
 	bool feasible = true; //判断找到的解是不是可行解
 	do {
 		// 重复循环直到找到一个解满足所有活动的参与人数都不超过各自活动的人数限制
