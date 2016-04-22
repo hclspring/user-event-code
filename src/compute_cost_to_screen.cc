@@ -30,8 +30,10 @@ int main(const int argc, const char** argv)
 	p.read_preprocessed_data(input_file);
 	p.read_assignment_data(assignment_file);
 	if (type == CLIQUE) {
+		cout << "Clique cost is ";
 		cout << p.calc_clique_cost(alpha, beta, gamma) << endl;
 	} else {
+		cout << "Cut cost is ";
 		cout << p.calc_cut_cost(alpha, beta, gamma) << endl;
 	}
 	return 0;

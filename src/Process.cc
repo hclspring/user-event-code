@@ -413,11 +413,11 @@ void Process::calc_assignments_exhaustive_offline(const std::string & kind, cons
 	if (initialize_exhaustive_first_feasible_assignments()) {
 		if (use_cut) {
 			current_cost = calc_cut_cost(alpha, beta, gamma);
-			optimal_cost = current_cost;
 		} else {
 			current_cost = calc_clique_cost(alpha, beta, gamma);
-			optimal_cost = current_cost;
 		}
+		optimal_cost = current_cost;
+		optimal_user_affinities = user_affinities;
 
 		while (find_exhaustive_next_feasible_assignments()) {
 			if (use_cut) {
@@ -433,6 +433,12 @@ void Process::calc_assignments_exhaustive_offline(const std::string & kind, cons
 					optimal_user_affinities = user_affinities;
 				}
 			}
+		}
+
+		//optimal_user_affinities = user_affinities;
+		initialize_null_assignments();
+		for (int i = 0; i < optimal_user_affinities.size(); ++i) {
+			assign(i, optimal_user_affinities[i]);
 		}
 		
 		if (use_cut) {
@@ -877,7 +883,6 @@ bool Process::initialize_exhaustive_first_feasible_assignments() {
 
 bool Process::find_exhaustive_next_feasible_assignments() {
 	vector<int> user_asn = user_affinities; //把当前解保存下来
-
 	bool feasible = true; //判断找到的解是不是可行解
 	do {
 		// 重复循环直到找到一个解满足所有活动的参与人数都不超过各自活动的人数限制
