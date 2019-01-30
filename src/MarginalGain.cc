@@ -27,6 +27,14 @@ bool MarginalGain::operator< (const MarginalGain & m2){
 	return this->gain < m2.gain;
 }
 
+bool MarginalGain::compare_asc(const MarginalGain &m1, const MarginalGain &m2) {
+	return m1.gain < m2.gain;
+}
+
+bool MarginalGain::compare_desc(const MarginalGain &m1, const MarginalGain &m2) {
+	return m1.gain > m2.gain;
+}
+
 
 void MarginalGain::set_gain(double gain){
 	this->gain = gain;

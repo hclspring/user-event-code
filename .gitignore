@@ -1,0 +1,46 @@
+# Git:
+#.gitignore
+
+# System files:
+*.swp
+*~
+
+# Compiled files:
+aclocal.m4
+autom4te.cache/*
+autoscan.log
+compile
+config.h
+config.h.in
+config.log
+config.status
+configure
+#configure.ac
+configure.scan
+depcomp
+install-sh
+Makefile.in
+missing
+src/*.o
+stamp-h1
+Makefile
+src/.deps/*
+
+# Compiled executable files
+src/test
+src/preprocess
+src/clique_offline
+src/clique_online
+src/compute_cost_to_file
+src/compute_cost_to_screen
+src/cut_offline
+src/cut_online
+src/cut_online_specific_arrival
+src/exhaustive_offline
+src/online_greedy
+
+# test data
+src/test.cc
+src/test.o
+src/test
+src/temp/*

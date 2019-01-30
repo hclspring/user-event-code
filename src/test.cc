@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <cstdlib>
 #include <ctime>
 #include <set>
@@ -7,38 +8,26 @@
 
 using namespace std;
 
-template <typename T>
 class A {
 public:
-	T _a;
-	A(T a);
+	int _a;
+	A(int a){_a = a;}
+	~A(){ cout << "dec A" << endl;}
+
+	void fuck() {
+		cout << "fuck A" << endl;
+	}
 };
 
-template <typename T>
-class B {
+class B : public A {
 public:
-	vector<A<T> > _b;
-	void push(A<T> a);
+	B(int a) : A(a){}
+	~B(){}
 };
-
-template <typename T>
-A<T>::A(T a) {
-	_a = a;
-}
-
-template <typename T>
-void B<T>::push(A<T> a) {
-	_b.push_back(a);
-}
-
 
 int main()
 {
-	B<int> b;
-	b.push(A<int>(1));
-	b.push(A<int>(2));
-	for (int i = 0; i < b._b.size(); ++i) {
-		cout << b._b[i]._a << endl;
-	}
+	vector<vector<int>> x(3, vector<int>(3, 100));
+	cout << x[0][0] << endl;
     return 0;
 }

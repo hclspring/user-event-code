@@ -17,6 +17,8 @@ public:
 	void operator=(const MarginalGain & m);
 	bool operator> (const MarginalGain & m2);
 	bool operator< (const MarginalGain & m2);
+	static bool compare_asc(const MarginalGain & m1, const MarginalGain & m2);//used for sorting in asc order
+	static bool compare_desc(const MarginalGain & m1, const MarginalGain & m2);//used for sorting in desc order
 
 	void set_gain(double gain);
 

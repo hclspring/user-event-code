@@ -1,5 +1,13 @@
 #include "Process.h"
 
+
+#include "User.h"
+#include "Event.h"
+#include "UserEventBase.h"
+#include "Util.h"
+#include "MarginalGainHeap.h"
+#include "MarginalGain.h"
+
 using namespace std;
 
 Process::Process(){
@@ -57,6 +65,21 @@ bool Process::read_event_pos_file(std::string filename)
 
 }
 
+bool Process::read_user_capacity_file(std::string filename){
+	ifstream ifs(filename.c_str());
+	if(ifs.fail()){
+		cerr << "Read file " << filename << " error." << endl;
+		return false;
+	}
+
+	assert(num_users > 0);
+	read_user_capacities(ifs);
+
+	ifs.close();
+	return true;
+
+}
+
 bool Process::read_event_capacity_file(std::string filename){
 	ifstream ifs(filename.c_str());
 	if(ifs.fail()){
@@ -72,6 +95,20 @@ bool Process::read_event_capacity_file(std::string filename){
 
 }
 
+bool Process::read_conflict_events_file(std::string filename) {
+	ifstream ifs(filename.c_str());
+	if (ifs.fail()) {
+		cerr << "Read file " << filename << " error." << endl;
+		return false;
+	}
+
+	assert(num_events > 1);
+	read_conflict_events(ifs);
+
+	ifs.close();
+	return true;
+}
+
 bool Process::read_preprocessed_data(std::string filename){	
 	ifstream ifs(filename.c_str());
 	if(ifs.fail()){
@@ -79,16 +116,40 @@ bool Process::read_preprocessed_data(std::string filename){
 		return false;
 	}
 
+	string firstline;
+	// read first line of the file
+	getline(ifs, firstline, '\n');
+	// parse the version from first line
+	int version = parse_preprocess_version(firstline);
 	// read number of events and users
-	read_user_event_count(ifs);
+	if (version == 1) {
+		// version = 1: 首行即为数据，从首行字符串读取信息
+		read_user_event_count(firstline);
+	} else {
+		// version > 1: 首行是注释，内含版本号信息，从第二行读取信息
+		read_user_event_count(ifs);
+	}
 	// read distance matrix
 	read_distance_matrix(ifs);
+	// read normalized distance matrix, if there exists this part (in other words, version = 2)
+	if (version == 2) {
+		read_normalized_distance_matrix(ifs);
+	}
 	// read similarity matrix
 	read_similarity_matrix(ifs);
+	// read normalized similarity matrix, if there exists this part (in other words, version = 2)
+	if (version == 2) {
+		read_normalized_similarity_matrix(ifs);
+	}
 	// read weight matrix
 	string nextline = read_weight_matrix(ifs);
 	// read upper capacity of events
 	read_event_capacities(ifs, nextline);
+	// read upper capacity of users, if there exists this part (in other words, version = 2)
+	if (version == 2) {
+		read_user_capacities(ifs);
+		read_conflict_events(ifs);
+	}
 	// 构造网络
 	create_graph_users();
 
@@ -129,8 +190,8 @@ bool Process::read_assignment_data(string filename)
 	vector<int> temp;
 	for(int i = 0; i < num_users; i++){
 		getline(ifs, line, '\n');
-		temp = util.read_line_ints(line);
-		assign(temp[0] - 1, temp[1] - 1);
+		temp = Util::read_line_ints(line);
+		assign_trial(temp[0] - 1, temp[1] - 1);
 	}
 
 	ifs.close();
@@ -162,22 +223,24 @@ void Process::gen_rand_arrival() {
 
 void Process::calc_input_content() {
 	calc_distance_matrix();
+	calc_normalized_distance_matrix();
 	calc_similarity_matrix();
+	calc_normalized_similarity_matrix();
 	calc_weight_matrix();
 }
 
 double Process::calc_distance_user_event(User & u, Event & e)
 {
-	return util.calc_euc_distance(u.get_xpos(), u.get_ypos(), e.get_xpos(), e.get_ypos());
+	return Util::calc_euc_distance(u.get_xpos(), u.get_ypos(), e.get_xpos(), e.get_ypos());
 }
 
 double Process::calc_similarity_user_event(User & u, Event & e)
 {
-	return util.calc_cos_similarity(u.get_attr(), e.get_attr());
+	return Util::calc_cos_similarity(u.get_attr(), e.get_attr());
 }
 
 double Process::calc_weight_user_user(User & u1, User & u2){
-	return util.calc_cos_similarity(u1.get_attr(), u2.get_attr());
+	return Util::calc_cos_similarity(u1.get_attr(), u2.get_attr());
 }
 
 void Process::calc_distance_matrix(){
@@ -193,6 +256,15 @@ void Process::calc_distance_matrix(){
 	}
 }
 
+void Process::calc_normalized_distance_matrix() {
+	assert(distance_user_event.size() == num_users);
+	distance_user_event_normalized.clear();
+	distance_user_event_normalized = distance_user_event;
+	double max_distance = Util::get_max_value(distance_user_event);
+	assert(max_distance > 1e-6);
+	Util::multiply(distance_user_event_normalized, 1.0 / max_distance);
+}
+
 void Process::calc_similarity_matrix(){
 	assert(num_users > 0 && num_events > 0);
 	similarity_user_event.clear();
@@ -205,6 +277,16 @@ void Process::calc_similarity_matrix(){
 		similarity_user_event.push_back(row);
 	}
 }
+
+void Process::calc_normalized_similarity_matrix() {
+	assert(similarity_user_event.size() == num_users);
+	similarity_user_event_normalized.clear();
+	similarity_user_event_normalized = similarity_user_event;
+	double max_similarity = Util::get_max_value(similarity_user_event);
+	assert(max_similarity > 1e-6);
+	Util::multiply(similarity_user_event_normalized, 1.0 / max_similarity);
+}
+
 
 void Process::calc_weight_matrix(){
 	assert(num_users > 0);
@@ -225,7 +307,18 @@ void Process::calc_weight_matrix(){
 
 }
 
-	// write data
+void Process::calc_utility_matrix(double alpha) {
+	assert(num_users > 0 && num_events > 0);
+	utility_user_event.clear();
+	utility_user_event.resize(num_users, vector<double>(num_events, 0));
+	for (int i = 0; i < num_users; ++i) {
+		for (int j = 0; j < num_events; ++j) {
+			utility_user_event[i][j] = calc_utility(i, j, alpha);
+		}
+	}
+}
+
+// write data
 bool Process::write_preprocessed_data(std::string filename){
 	ofstream ofs(filename.c_str());
 	if(ofs.fail()){
@@ -233,29 +326,18 @@ bool Process::write_preprocessed_data(std::string filename){
 		return false;
 	}
 
+	// write version information
+	ofs << "#Version 2" << endl;
+	// write number of events and users
 	ofs << num_events << " " << num_users << endl;
 	// write distances
-	for(int i = 0; i < distance_user_event.size(); i++){
-		for(int j = 0; j < distance_user_event[i].size(); j++){
-			if(j > 0){
-				ofs << " ";
-			}
-			ofs << distance_user_event.at(i).at(j);
-		}
-		ofs << endl;
-	}
-	
+	Util::write_matrix(distance_user_event, ofs);
+	// write normalized distances
+	Util::write_matrix(distance_user_event_normalized, ofs);
 	// write similarities
-	for(int i = 0; i < similarity_user_event.size(); i++){
-		for(int j = 0; j < similarity_user_event[i].size(); j++){
-			if(j > 0){
-				ofs << " ";
-			}
-			ofs << similarity_user_event.at(i).at(j);
-		}
-		ofs << endl;
-	}
-
+	Util::write_matrix(similarity_user_event, ofs);
+	// write normalized similarities
+	Util::write_matrix(similarity_user_event_normalized, ofs);
 	// write weights
 	for(int i = 0; i < weight_user_user.size(); i++){
 		for(int j = i+1; j < weight_user_user[i].size(); j++){
@@ -263,9 +345,20 @@ bool Process::write_preprocessed_data(std::string filename){
 		}
 	}
  
-	//write event capacity
+	// write event capacity
 	for(int i = 0; i < events.size(); i++){
 		ofs << events[i].get_upper_capacity() << endl;
+	}
+
+	// write user capacity
+	for(int i = 0; i < users.size(); ++i) {
+		ofs << users[i].get_upper_capacity() << endl;
+	}
+
+	// write conflict events
+	typedef set<pair<int, int> > SETPAIR;
+	for(SETPAIR::iterator it = conflict_events.begin(); it != conflict_events.end(); ++it) {
+		ofs << it->first << " " << it->second << endl;
 	}
 
 
@@ -283,6 +376,33 @@ bool Process::write_assignment_result(string filename)
 	for(int i = 0; i < user_affinities.size(); i++){
 		ofs << i+1 << " " << user_affinities[i]+1 << endl;
 	}
+	ofs.close();
+	return true;
+}
+
+bool Process::write_match_result(string filename) {
+	ofstream ofs(filename.c_str());
+	if(ofs.fail()){
+		cerr << "Write file " << filename << " error." << endl;
+		return false;
+	}
+	ofs << "#User [event_count]: events" << endl;
+	for (int i = 0; i < user_events.size(); ++i) {
+		ofs << i + 1 << " [" << user_events[i].size() << "]:";
+		for (set<int>::iterator it = user_events[i].begin(); it != user_events[i].end(); ++it) {
+			ofs << " " << (*it) + 1;
+		}
+		ofs << endl;
+	}
+	ofs << "#Event [user_count]: users" << endl;
+	for (int i = 0; i < event_users.size(); ++i) {
+		ofs << i + 1 << " [" << event_users[i].size() << "]:";
+		for (set<int>::iterator it = event_users[i].begin(); it != event_users[i].end(); ++it) {
+			ofs << " " << (*it) + 1;
+		}
+		ofs << endl;
+	}
+	ofs.close();
 	return true;
 }
 
@@ -356,7 +476,7 @@ void Process::calc_assignments_clique_offline(){
 		int v = maxGain.get_event();
 		if (event_users[v].size() < events[v].get_upper_capacity()
 				&& user_affinities[u] < 0) {
-			assign(u, v);
+			assign_trial(u, v);
 			for (list<int>::iterator it = graph_users[u].begin(); it != graph_users[u].end(); ++it) {
 				int neigh = *it;
 				if (user_affinities[neigh] < 0) {
@@ -387,7 +507,7 @@ void Process::calc_assignments_cut_offline()
 		int v = minGain.get_event();
 		if (event_users[v].size() < events[v].get_upper_capacity()
 				&& user_affinities[u] < 0) {
-			assign(u, v);
+			assign_trial(u, v);
 			for (list<int>::iterator it = graph_users[u].begin(); it != graph_users[u].end(); ++it) {
 				int neigh = *it;
 				if (user_affinities[neigh] < 0) {
@@ -438,7 +558,7 @@ void Process::calc_assignments_exhaustive_offline(const std::string & kind, cons
 		//optimal_user_affinities = user_affinities;
 		initialize_null_assignments();
 		for (int i = 0; i < optimal_user_affinities.size(); ++i) {
-			assign(i, optimal_user_affinities[i]);
+			assign_trial(i, optimal_user_affinities[i]);
 		}
 		
 		if (use_cut) {
@@ -493,7 +613,7 @@ void Process::calc_assignments_clique_online()
 				}
 			}
 		}
-		assign(arrived_user, max_v);
+		assign_trial(arrived_user, max_v);
 	}
 }
 
@@ -542,10 +662,32 @@ void Process::calc_assignments_cut_online(){
 				}
 			}
 		}
-		assign(arrived_user, min_v);
+		assign_trial(arrived_user, min_v);
 	}
 
 }
+
+void Process::calc_matches_online_greedy(double alpha) {
+	initialize_null_matches();
+	for (int arrived_user_index = 0; arrived_user_index < num_users; ++arrived_user_index) {
+		// determine the current user
+		int arrived_user = users_arrival[arrived_user_index];
+		vector<MarginalGain> utilities;
+		// calculate and sort the utilites of this user and every event
+		for (int i = 0; i < num_events; ++i) {
+			utilities.push_back(MarginalGain(arrived_user, i, calc_utility(arrived_user, i, alpha)));
+		}
+		sort(utilities.begin(), utilities.end(), MarginalGain::compare_desc);
+		// match the user and the event if condition satisfied
+		for (int i = 0; i < num_events; ++i) {
+			int event = utilities[i].get_event();
+			if (check_match_condition(arrived_user, event)) {
+				match(arrived_user, event);
+			}
+		}
+	}
+}
+
 
 double Process::calc_cut_cost(double alpha, double beta, double gamma)
 {
@@ -606,9 +748,15 @@ void Process::initialize_null_assignments(){
 	user_affinities.resize(num_users, -1);
 	event_users.clear();
 	event_users.resize(num_events, set<int>());
+	user_events.clear();
+	user_events.resize(num_users, set<int>());
 }
 
-bool Process::assign(int user, int event){
+void Process::initialize_null_matches() {
+	initialize_null_assignments();
+}
+
+bool Process::assign_trial(int user, int event){
 	assert(user >= 0 && user < num_users);
 	assert(event >= 0 && event < num_events);
 	if (user_affinities[user] >= 0) {
@@ -639,10 +787,41 @@ bool Process::change_assignment(int user, int event){
 }
 */
 
+void Process::match(int user, int event) {
+	assert(user < num_users && user >= 0);
+	assert(event < num_events && event >= 0);
+	user_events[user].insert(event);
+	event_users[event].insert(user);
+}
+
+int Process::parse_preprocess_version(string line) {
+	assert(line.length() > 0);
+	if (line[0] != '#') return 1; //首字符不为#，版本为1，没有版本说明
+	else {
+		// 首行格式为 #version 2 blabla
+		int i = 1;
+		while (i < line.length() && line[i] == ' ') ++i;
+		assert(i < line.length());
+		int next_space_pos = line.find_first_of(" \t\n", i);
+		string firstword = line.substr(i, next_space_pos - i);
+		assert(firstword.compare("Version") == 0);
+		i = next_space_pos + 1;
+		while (i < line.length() && line[i] == ' ') ++i;
+		assert(i < line.length());
+		next_space_pos = line.find_first_of(" \t\n", i);
+		int version = atoi(line.substr(i, next_space_pos - i).c_str());
+		return version;
+	}
+}
+
 void Process::read_user_event_count(ifstream &ifs) {
 	string line;
 	getline(ifs, line, '\n');
-	vector<int> temp = util.read_line_ints(line);
+	read_user_event_count(line);
+}
+
+void Process::read_user_event_count(string &line) {
+	vector<int> temp = Util::read_line_ints(line);
 	assert(temp.size() >= 2);
 	num_events = temp[0];
 	num_users = temp[1];
@@ -656,7 +835,7 @@ void Process::read_event_attributes(std::ifstream &ifs) {
 	string line;
 	for(int line_count = 0; line_count < num_events; line_count++){
 		getline(ifs, line, '\n');
-		events[line_count].set_attr(util.read_line_doubles(line));
+		events[line_count].set_attr(Util::read_line_doubles(line));
 	}
 }
 
@@ -665,7 +844,7 @@ void Process::read_user_attributes(std::ifstream &ifs) {
 	assert(users.size() == num_users);
 	for(int line_count = 0; line_count < num_users; line_count++){
 		getline(ifs, line, '\n');
-		users[line_count].set_attr(util.read_line_doubles(line));
+		users[line_count].set_attr(Util::read_line_doubles(line));
 	}
 }
 
@@ -675,7 +854,7 @@ void Process::read_user_positions(std::ifstream &ifs) {
 	assert(users.size() == num_users);
 	for(int i = 0; i < num_users; i++){
 		getline(ifs, line, '\n');
-		vector<double> temp = util.read_line_doubles(line);
+		vector<double> temp = Util::read_line_doubles(line);
 		assert(temp.size() >= 2);
 		users[i].set_xpos(temp[0]);
 		users[i].set_ypos(temp[1]);
@@ -688,12 +867,32 @@ void Process::read_event_positions(std::ifstream &ifs) {
 	assert(events.size() == num_events);
 	for(int i = 0; i < num_events; i++){
 		getline(ifs, line, '\n');
-		vector<double> temp = util.read_line_doubles(line);
+		vector<double> temp = Util::read_line_doubles(line);
 		assert(temp.size() >= 2);
 		events[i].set_xpos(temp[0]);
 		events[i].set_ypos(temp[1]);
 	}
 }
+
+void Process::read_user_capacities(std::ifstream &ifs) {
+	string line;
+	assert(users.size() == num_users);
+	for(int i = 0; i < num_users; i++){
+		getline(ifs, line, '\n');
+		users[i].set_upper_capacity(atoi(line.c_str()));
+	}
+}
+
+void Process::read_user_capacities(std::ifstream &ifs, const std::string &firstline) {
+	assert(users.size() == num_users);
+	users[0].set_upper_capacity(atoi(firstline.c_str()));
+	string line;
+	for(int i = 1; i < num_users; i++){
+		getline(ifs, line, '\n');
+		users[i].set_upper_capacity(atoi(line.c_str()));
+	}
+}
+
 
 void Process::read_event_capacities(std::ifstream &ifs) {
 	string line;
@@ -720,16 +919,35 @@ void Process::read_distance_matrix(std::ifstream &ifs) {
 	string line;
 	for(int i = 0; i < num_users; i++){
 		getline(ifs, line, '\n');
-		distance_user_event.push_back(util.read_line_doubles(line));
+		distance_user_event.push_back(Util::read_line_doubles(line));
 	}
 }
+
+void Process::read_normalized_distance_matrix(std::ifstream &ifs) {
+	distance_user_event_normalized.clear();
+	string line;
+	for(int i = 0; i < num_users; i++){
+		getline(ifs, line, '\n');
+		distance_user_event_normalized.push_back(Util::read_line_doubles(line));
+	}
+}
+
 
 void Process::read_similarity_matrix(std::ifstream &ifs) {
 	similarity_user_event.clear();
 	string line;
 	for(int i = 0; i < num_users; i++){
 		getline(ifs, line, '\n');
-		similarity_user_event.push_back(util.read_line_doubles(line));
+		similarity_user_event.push_back(Util::read_line_doubles(line));
+	}
+}
+
+void Process::read_normalized_similarity_matrix(std::ifstream &ifs) {
+	similarity_user_event_normalized.clear();
+	string line;
+	for(int i = 0; i < num_users; i++){
+		getline(ifs, line, '\n');
+		similarity_user_event_normalized.push_back(Util::read_line_doubles(line));
 	}
 }
 
@@ -745,7 +963,7 @@ std::string Process::read_weight_matrix(std::ifstream &ifs) {
 	std::string line;
 	while(true){
 		getline(ifs, line, '\n');
-		if(util.get_number_of_spaces(line) > 1){
+		if(Util::get_number_of_spaces(line) > 1){
 			stringstream sstr4(line);
 			sstr4 >> a >> b >> c;
 			assert(a >= 0 && a < num_users);
@@ -759,6 +977,15 @@ std::string Process::read_weight_matrix(std::ifstream &ifs) {
 	return line;
 }
 
+void Process::read_conflict_events(std::ifstream &ifs) {
+	conflict_events.clear();
+	string line;
+	while (getline(ifs, line, '\n')) {
+		vector<int> ints = Util::read_line_ints(line);
+		assert(ints.size() == 2);
+		conflict_events.insert(make_pair(ints[0], ints[1]));
+	}
+}
 
 double Process::calc_marginal_gain_offline_clique(int user_index, int event_index)
 {
@@ -859,6 +1086,12 @@ double Process::calc_marginal_gain_online_cut(int user_index, int neighbor_index
 	result += weight_user_user[user_index][neighbor_index];
 	return result;
 }
+	
+double Process::calc_utility(int user_index, int event_index, double alpha) {
+	assert(alpha > 1e-6 && alpha < 1 - 1e-6);
+	double result = alpha * (1 - distance_user_event_normalized[user_index][event_index]) + (1-alpha) * similarity_user_event_normalized[user_index][event_index];
+	return result;
+}
 
 bool Process::initialize_exhaustive_first_feasible_assignments() {
 	initialize_null_assignments();
@@ -866,11 +1099,11 @@ bool Process::initialize_exhaustive_first_feasible_assignments() {
 	int event = 0;
 	bool assign_success;
 	for (int user = 0; user < num_users && event < num_events; ++user) {
-		assign_success = assign(user, event);
+		assign_success = assign_trial(user, event);
 		if (assign_success == false) {
 			do {
 				++event;
-				assign_success = assign(user, event);
+				assign_success = assign_trial(user, event);
 			} while (assign_success == false && event < num_events);
 		}
 	}
@@ -920,7 +1153,7 @@ bool Process::find_exhaustive_next_feasible_assignments() {
 	// 根据找到的可行解进行分配活动
 	initialize_null_assignments();
 	for (int user = 0; user < num_users; ++user) {
-		assign(user, user_asn[user]);
+		assign_trial(user, user_asn[user]);
 	}
 	return true;
 }
@@ -940,4 +1173,25 @@ bool Process::check_assignments_feasible() {
 		}
 	}
 	return true;
+}
+
+bool Process::check_match_condition(int user, int event) {
+	if (user < 0 || user >= num_users) return false;
+	if (event < 0 || event >= num_events) return false;
+	if (user_events[user].size() >= users[user].get_upper_capacity()) return false; // check user's capacity
+	if (event_users[event].size() >= events[event].get_upper_capacity()) return false; // check event's capacity
+	for (set<int>::iterator it = user_events[user].begin(); it != user_events[user].end(); ++it) {
+		if (check_conflict(event, *it)) return false; // check conflict of event and matched events
+	}
+	return true;
+}
+
+bool Process::check_conflict(int event1, int event2) {
+	pair<int, int> p1 = make_pair(event1, event2);
+	pair<int, int> p2 = make_pair(event2, event1);
+	if (conflict_events.count(p1) || conflict_events.count(p2)) {
+		return true;
+	} else {
+		return false;
+	}
 }

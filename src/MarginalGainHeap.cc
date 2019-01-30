@@ -1,4 +1,5 @@
 #include "MarginalGainHeap.h"
+#include "MarginalGain.h"
 
 MarginalGainHeap::MarginalGainHeap():
 	_heap(NULL), _maxHeap(true), _size(0), _capacity(0) {

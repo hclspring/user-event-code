@@ -5,7 +5,7 @@
 #include <cassert>
 #include <cstdio>
 
-#include "MarginalGain.h"
+class MarginalGain;
 
 enum HeapAttr {MAXHEAP, MINHEAP};
 

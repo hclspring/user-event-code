@@ -19,6 +19,27 @@ double Util::calc_euc_distance(double x1, double y1, double x2, double y2){
 	return sqrt(dx*dx + dy*dy);
 }
 
+double Util::get_max_value(const vector<vector<double> > &x) {
+	assert(x.size() > 0 && x[0].size() > 0);
+	double max_value = numeric_limits<double>::min();
+	for (int i = 0; i < x.size(); ++i) {
+		for (int j = 0; j < x[i].size(); ++j) {
+			if (max_value < x[i][j]) {
+				max_value = x[i][j];
+			}
+		}
+	}
+	return max_value;
+}
+
+void Util::multiply(vector<vector<double> > &x, double y) {
+	for (int i = 0; i < x.size(); ++i) {
+		for (int j = 0; j < x[i].size(); ++j) {
+			x[i][j] *= y;
+		}
+	}
+}
+
 vector<double> Util::read_line_doubles(const string &line)
 {
 	stringstream ss(line);
@@ -55,4 +76,26 @@ int Util::get_number_of_spaces(const string &line)
 	return count;
 }
 
+bool Util::try_to_read_file(const std::string &filename, std::ifstream &ifs)
+{
+	ifs.open(filename.c_str());
+	if (ifs.fail()) {
+		cerr << "Read file " << filename << " error." << endl;
+		return false;
+	} else {
+		return true;
+	}
+}
+
+void Util::write_matrix(const std::vector<std::vector<double> > &matrix, std::ofstream &ofs) {
+	for (int i = 0; i < matrix.size(); ++i) {
+		for (int j = 0; j < matrix[i].size(); ++j) {
+			if (j > 0) {
+				ofs << " ";
+			}
+			ofs << matrix[i][j];
+		}
+		ofs << std::endl;
+	}
+}
 
