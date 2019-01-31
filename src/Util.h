@@ -18,6 +18,7 @@ public:
 
 	// Matrix:
 	static double get_max_value(const std::vector<std::vector<double> > &x);
+	static double get_min_value(const std::vector<std::vector<double> > &x);
 	static void multiply(std::vector<std::vector<double> > &x, double y);
 
 	// parse strings:

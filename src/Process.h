@@ -91,6 +91,7 @@ public:
 
 	// matching algorithm implementation
 	void calc_matches_online_greedy(double alpha);
+	void calc_matches_onlineF_greedy(double alpha);
 
 	// calculate assignment cost
 	double calc_cut_cost(double alpha, double beta, double gamma);

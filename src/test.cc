@@ -27,7 +27,12 @@ public:
 
 int main()
 {
-	vector<vector<int>> x(3, vector<int>(3, 100));
-	cout << x[0][0] << endl;
+	srand(time(NULL));
+	cout << rand() << endl;
+	for (int i= 0; i < 20; ++i) {
+		cout << rand() << endl;
+	double theta = (((rand() % 1000000) * 1.0) / 1000000) * 10 + 5;
+	cout << theta << endl;
+	}
     return 0;
 }

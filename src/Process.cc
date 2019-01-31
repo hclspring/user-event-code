@@ -688,6 +688,33 @@ void Process::calc_matches_online_greedy(double alpha) {
 	}
 }
 
+void Process::calc_matches_onlineF_greedy(double alpha) {
+	initialize_null_matches();
+	// find the min and max of utilities
+	calc_utility_matrix(alpha);
+	double utility_min = Util::get_min_value(utility_user_event);
+	double utility_max = Util::get_max_value(utility_user_event);
+	double theta = (((rand() % 1000000) * 1.0 ) / 1000000) * (utility_max - utility_min) + utility_min;
+	for (int arrived_user_index = 0; arrived_user_index < num_users; ++arrived_user_index) {
+		// determine the current user
+		int arrived_user = users_arrival[arrived_user_index];
+		// sort the utilities of this user and potential events
+		vector<MarginalGain> utilities;
+		for (int i = 0; i < num_events; ++i) {
+			if (check_match_condition(arrived_user, i) && utility_user_event[arrived_user][i] >= theta) {
+				utilities.push_back(MarginalGain(arrived_user, i, utility_user_event[arrived_user][i]));
+				sort(utilities.begin(), utilities.end(), MarginalGain::compare_desc);
+			}
+		}
+		// match the user and the event if condition satisfied
+		for (int i = 0; i < num_events; ++i) {
+			int event = utilities[i].get_event();
+			if (check_match_condition(arrived_user, event)) {
+				match(arrived_user, event);
+			}
+		}
+	}
+}
 
 double Process::calc_cut_cost(double alpha, double beta, double gamma)
 {

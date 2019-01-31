@@ -32,6 +32,20 @@ double Util::get_max_value(const vector<vector<double> > &x) {
 	return max_value;
 }
 
+double Util::get_min_value(const vector<vector<double> > &x) {
+	assert(x.size() > 0 && x[0].size() > 0);
+	double min_value = numeric_limits<double>::max();
+	for (int i = 0; i < x.size(); ++i) {
+		for (int j = 0; j < x[i].size(); ++j) {
+			if (min_value > x[i][j]) {
+				min_value = x[i][j];
+			}
+		}
+	}
+	return min_value;
+}
+
+
 void Util::multiply(vector<vector<double> > &x, double y) {
 	for (int i = 0; i < x.size(); ++i) {
 		for (int j = 0; j < x[i].size(); ++j) {
