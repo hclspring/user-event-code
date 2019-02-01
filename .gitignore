@@ -38,6 +38,7 @@ src/cut_online
 src/cut_online_specific_arrival
 src/exhaustive_offline
 src/online_greedy
+src/onlineF_greedy
 
 # test data
 src/test.cc

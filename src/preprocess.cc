@@ -7,7 +7,8 @@ using namespace std;
 int main(const int argc, const char** argv)
 {
 	if(argc < 8){
-		std::cout << "Usage: " << argv[0] << " IN_ATTR_FILE IN_USER_CAP_FILE IN_EVENT_CAP_FILE IN_USER_LOC_FILE IN_EVENT_LOC_FILE IN_EVENT_CONFLICT_FILE OUT_ALL_FILE" << std::endl;
+		// cout << "Usage: " << argv[0] << " IN_ATTR_FILE IN_USER_CAP_FILE IN_EVENT_CAP_FILE IN_USER_LOC_FILE IN_EVENT_LOC_FILE IN_EVENT_CONFLICT_FILE OUT_ALL_FILE" << std::endl;
+		cout << "Usage: " << argv[0] << " InAttrFile InUserCapFile InEventCapFile InUserLocFile InEventLocFile InEventConflictFile OutAllFile" << std::endl;
 		return 0;
 	}
 	string in_attr_file = argv[1];

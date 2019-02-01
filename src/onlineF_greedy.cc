@@ -26,7 +26,7 @@ int main(const int argc, const char** argv)
 	proc.read_preprocessed_data(input_file);
 	for (int i = 0; i < count; ++i) {
 		proc.gen_rand_arrival();
-		proc.calc_matches_online_greedy(alpha);
+		proc.calc_matches_onlineF_greedy(alpha);
 
 		string out_arrival_file = output_dir, out_match_file = output_dir;
 		string count_str = to_string(i + 1);
