@@ -76,7 +76,7 @@ public:
 	// write data
 	bool write_preprocessed_data(std::string filename);
 	bool write_assignment_result(std::string filename);
-	bool write_match_result(std::string filename);
+	bool write_match_result(std::string filename, double alpha, double theta = -1);
 	bool write_assignment_costs(std::string filename);
 	bool write_assignment_costs(std::string filename, std::string type);
 	bool write_arrival_sequence(std::string filename);
@@ -91,11 +91,13 @@ public:
 
 	// matching algorithm implementation
 	void calc_matches_online_greedy(double alpha);
-	void calc_matches_onlineF_greedy(double alpha);
+	void calc_matches_onlineF_greedy(double alpha, double& theta);
 
 	// calculate assignment cost
 	double calc_cut_cost(double alpha, double beta, double gamma);
 	double calc_clique_cost(double alpha, double beta, double gamma);
+	// calculate match utility
+	double calc_match_utility(double alpha);
 
 private:
 	// 初始化空分配assignment

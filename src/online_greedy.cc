@@ -35,7 +35,7 @@ int main(const int argc, const char** argv)
 		out_match_file.append("/assignment.alpha").append(to_string(alpha)).append(".").append(count_str).append(".txt");
 
 		proc.write_arrival_sequence(out_arrival_file);
-		proc.write_match_result(out_match_file);
+		proc.write_match_result(out_match_file, alpha);
 	}
 	return 0;
 }

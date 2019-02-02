@@ -380,12 +380,17 @@ bool Process::write_assignment_result(string filename)
 	return true;
 }
 
-bool Process::write_match_result(string filename) {
+bool Process::write_match_result(string filename, double alpha, double theta) {
 	ofstream ofs(filename.c_str());
 	if(ofs.fail()){
 		cerr << "Write file " << filename << " error." << endl;
 		return false;
 	}
+	ofs << "#alpha = " << alpha << endl;
+	if (theta >= 0) {
+		ofs << "#theta = " << theta << endl;
+	}
+	ofs << "#Utility = " << calc_match_utility(alpha) << endl;
 	ofs << "#User [event_count]: events" << endl;
 	for (int i = 0; i < user_events.size(); ++i) {
 		ofs << i + 1 << " [" << user_events[i].size() << "]:";
@@ -688,13 +693,13 @@ void Process::calc_matches_online_greedy(double alpha) {
 	}
 }
 
-void Process::calc_matches_onlineF_greedy(double alpha) {
+void Process::calc_matches_onlineF_greedy(double alpha, double& theta) {
 	initialize_null_matches();
 	// find the min and max of utilities
 	calc_utility_matrix(alpha);
 	double utility_min = Util::get_min_value(utility_user_event);
 	double utility_max = Util::get_max_value(utility_user_event);
-	double theta = (((rand() % 1000000) * 1.0 ) / 1000000) * (utility_max - utility_min) + utility_min;
+	theta = (((rand() % 1000000) * 1.0 ) / 2000000) * (utility_max - utility_min) + utility_min;
 	for (int arrived_user_index = 0; arrived_user_index < num_users; ++arrived_user_index) {
 		// determine the current user
 		int arrived_user = users_arrival[arrived_user_index];
@@ -707,7 +712,7 @@ void Process::calc_matches_onlineF_greedy(double alpha) {
 			}
 		}
 		// match the user and the event if condition satisfied
-		for (int i = 0; i < num_events; ++i) {
+		for (int i = 0; i < utilities.size(); ++i) {
 			int event = utilities[i].get_event();
 			if (check_match_condition(arrived_user, event)) {
 				match(arrived_user, event);
@@ -768,6 +773,21 @@ double Process::calc_clique_cost(double alpha, double beta, double gamma)
 	}
 	return clique_cost;
 
+}
+
+double Process::calc_match_utility(double alpha) {
+	double result = 0;
+	for (int user = 0; user < num_users; ++user) {
+		for (set<int>::iterator it = user_events[user].begin(); it != user_events[user].end(); ++it) {
+			int event = *it;
+			if (utility_user_event.size()) {
+				result += utility_user_event[user][event];
+			} else {
+				result += calc_utility(user, event, alpha);
+			}
+		}
+	}
+	return result;
 }
 
 void Process::initialize_null_assignments(){

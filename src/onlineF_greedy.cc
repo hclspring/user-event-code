@@ -25,8 +25,9 @@ int main(const int argc, const char** argv)
 
 	proc.read_preprocessed_data(input_file);
 	for (int i = 0; i < count; ++i) {
+		double theta;
 		proc.gen_rand_arrival();
-		proc.calc_matches_onlineF_greedy(alpha);
+		proc.calc_matches_onlineF_greedy(alpha, theta);
 
 		string out_arrival_file = output_dir, out_match_file = output_dir;
 		string count_str = to_string(i + 1);
@@ -35,7 +36,7 @@ int main(const int argc, const char** argv)
 		out_match_file.append("/assignment.alpha").append(to_string(alpha)).append(".").append(count_str).append(".txt");
 
 		proc.write_arrival_sequence(out_arrival_file);
-		proc.write_match_result(out_match_file);
+		proc.write_match_result(out_match_file, alpha, theta);
 	}
 	return 0;
 }
