@@ -17,7 +17,7 @@
 #include <set>
 #include <utility>
 #include <limits>
-
+#include <tuple>
 
 class User;
 class Event;
@@ -42,6 +42,8 @@ private:
 	std::vector<std::vector<double> > utility_user_event; // utility matrix is calculated only when useful, that is to say, when algorithm is implemented
 	std::vector<std::list<int> > graph_users;
 	std::set<std::pair<int, int> > conflict_events; // only <A, B> exist without <B, A>
+	std::vector<std::set<int> > same_area_users; // index of the vector denotes the corresponding area
+	std::vector<std::set<int> > same_area_events; // index of the vector denotes the corresponding area
 
 	std::vector<int> users_arrival;
 
@@ -92,6 +94,7 @@ public:
 	// matching algorithm implementation
 	void calc_matches_online_greedy(double alpha);
 	void calc_matches_onlineF_greedy(double alpha, double& theta);
+	void calc_matches_offline_FDTA();
 
 	// calculate assignment cost
 	double calc_cut_cost(double alpha, double beta, double gamma);
@@ -129,6 +132,7 @@ private:
 	void read_normalized_similarity_matrix(std::ifstream &ifs);//读人与活动的相似度
 	std::string read_weight_matrix(std::ifstream &ifs);//读人与人之间的权重（网络），然后返回下一行
 	void read_conflict_events(std::ifstream &ifs);//读冲突的活动清单
+	void read_area_info(std::ifstream &ifs); //读同一区域的人和活动
 
 	double calc_marginal_gain_offline_clique(int user_index, int event_index);
 	double calc_marginal_gain_offline_cut(int user_index, int event_index);
@@ -151,6 +155,7 @@ private:
 	void calc_normalized_similarity_matrix();
 	void calc_weight_matrix();
 	void calc_utility_matrix(double alpha); // this matrix is calculated only when useful
+	void calc_4areas();
 
 	bool initialize_exhaustive_first_feasible_assignments();
 	bool find_exhaustive_next_feasible_assignments();
@@ -164,6 +169,10 @@ private:
 
 	// 检查两个活动是否有冲突，有则返回true，无冲突则返回false
 	bool check_conflict(int event1, int event2);
+
+	// 获取用户和任务坐标的边界
+	std::tuple<double, double, double, double> get_border_coordinates(); // returned tuples are: xmin, xmax, ymin, ymax
+	void set_4areas(double xmid, double ymid); // set areas of users and events
 
 };
 

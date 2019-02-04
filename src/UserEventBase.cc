@@ -33,6 +33,11 @@ int UserEventBase::get_upper_capacity(){
 	return upper_capacity;
 }
 
+int UserEventBase::get_area(){
+	return area;
+}
+
+
 void UserEventBase::set_id(int id){
 	this->id = id;
 }
@@ -53,6 +58,9 @@ void UserEventBase::set_upper_capacity(int upper_capacity){
 	this->upper_capacity = upper_capacity;
 }
 
+void UserEventBase::set_area(int area) {
+	this->area = area;
+}
 
 
 

@@ -1,5 +1,6 @@
 #include "Process.h"
 
+#include <igraph.h>
 
 #include "User.h"
 #include "Event.h"
@@ -132,13 +133,13 @@ bool Process::read_preprocessed_data(std::string filename){
 	// read distance matrix
 	read_distance_matrix(ifs);
 	// read normalized distance matrix, if there exists this part (in other words, version = 2)
-	if (version == 2) {
+	if (version >= 2) {
 		read_normalized_distance_matrix(ifs);
 	}
 	// read similarity matrix
 	read_similarity_matrix(ifs);
 	// read normalized similarity matrix, if there exists this part (in other words, version = 2)
-	if (version == 2) {
+	if (version >= 2) {
 		read_normalized_similarity_matrix(ifs);
 	}
 	// read weight matrix
@@ -146,9 +147,13 @@ bool Process::read_preprocessed_data(std::string filename){
 	// read upper capacity of events
 	read_event_capacities(ifs, nextline);
 	// read upper capacity of users, if there exists this part (in other words, version = 2)
-	if (version == 2) {
+	if (version >= 2) {
 		read_user_capacities(ifs);
 		read_conflict_events(ifs);
+	}
+	// read area information of users and events
+	if (version >= 3) {
+		read_area_info(ifs);
 	}
 	// 构造网络
 	create_graph_users();
@@ -227,6 +232,7 @@ void Process::calc_input_content() {
 	calc_similarity_matrix();
 	calc_normalized_similarity_matrix();
 	calc_weight_matrix();
+	calc_4areas();
 }
 
 double Process::calc_distance_user_event(User & u, Event & e)
@@ -327,7 +333,7 @@ bool Process::write_preprocessed_data(std::string filename){
 	}
 
 	// write version information
-	ofs << "#Version 2" << endl;
+	ofs << "#Version 3" << endl;
 	// write number of events and users
 	ofs << num_events << " " << num_users << endl;
 	// write distances
@@ -359,6 +365,32 @@ bool Process::write_preprocessed_data(std::string filename){
 	typedef set<pair<int, int> > SETPAIR;
 	for(SETPAIR::iterator it = conflict_events.begin(); it != conflict_events.end(); ++it) {
 		ofs << it->first << " " << it->second << endl;
+	}
+
+	// write users in the same area
+	ofs << same_area_users.size() << endl;
+	for (int i = 0; i < same_area_users.size(); ++i) {
+		if (same_area_users[i].size() > 0) {
+			set<int>::iterator it = same_area_users[i].begin();
+			ofs << *it;
+			for (++it; it != same_area_users[i].end(); ++it) {
+				ofs << " " << *it;
+			}
+			ofs << endl;
+		}
+	}
+
+	// write events in the same area
+	ofs << same_area_events.size() << endl;
+	for (int i = 0; i < same_area_events.size(); ++i) {
+		if (same_area_events[i].size() > 0) {
+			set<int>::iterator it = same_area_events[i].begin();
+			ofs << *it;
+			for (++it; it != same_area_events[i].end(); ++it) {
+				ofs << " " << *it;
+			}
+			ofs << endl;
+		}
 	}
 
 
@@ -721,6 +753,13 @@ void Process::calc_matches_onlineF_greedy(double alpha, double& theta) {
 	}
 }
 
+void Process::calc_matches_offline_FDTA() {
+	initialize_null_matches();
+
+	igraph_t g;
+	igraph_destroy(&g);
+}
+
 double Process::calc_cut_cost(double alpha, double beta, double gamma)
 {
 	double sum_distance = 0.0, sum_similarity = 0.0, sum_weight = 0.0;
@@ -1034,6 +1073,39 @@ void Process::read_conflict_events(std::ifstream &ifs) {
 	}
 }
 
+void Process::read_area_info(std::ifstream &ifs) {
+	same_area_users.clear();
+	same_area_events.clear();
+	string line;
+	vector<int> ints;
+	// 先读同一区域的用户信息
+	getline(ifs, line, '\n');
+	ints = Util::read_line_ints(line);
+	assert(ints.size() > 0);
+	int same_area_users_count = ints[0];
+	same_area_users.resize(same_area_users_count);
+	for (int i = 0; i < same_area_users_count; ++i) {
+		getline(ifs, line, '\n');
+		ints = Util::read_line_ints(line);
+		for (int j = 0; j < ints.size(); ++j) {
+			same_area_users[i].insert(ints[j]);
+		}
+	}
+	// 再读同一区域的活动信息
+	getline(ifs, line, '\n');
+	ints = Util::read_line_ints(line);
+	assert(ints.size() > 0);
+	int same_area_events_count = ints[0];
+	same_area_events.resize(same_area_events_count);
+	for (int i = 0; i < same_area_events_count; ++i) {
+		getline(ifs, line, '\n');
+		ints = Util::read_line_ints(line);
+		for (int j = 0; j < ints.size(); ++j) {
+			same_area_events[i].insert(ints[j]);
+		}
+	}
+}
+
 double Process::calc_marginal_gain_offline_clique(int user_index, int event_index)
 {
 	double result = 0;
@@ -1140,6 +1212,15 @@ double Process::calc_utility(int user_index, int event_index, double alpha) {
 	return result;
 }
 
+void Process::calc_4areas() {
+	same_area_users.clear();
+	same_area_events.clear();
+	tuple<double, double, double, double> border_coordinates = get_border_coordinates();
+	double xmid = (get<0>(border_coordinates) + get<1>(border_coordinates)) / 2.0;
+	double ymid = (get<2>(border_coordinates) + get<3>(border_coordinates)) / 2.0;
+	set_4areas(xmid, ymid);
+}
+
 bool Process::initialize_exhaustive_first_feasible_assignments() {
 	initialize_null_assignments();
 
@@ -1240,5 +1321,85 @@ bool Process::check_conflict(int event1, int event2) {
 		return true;
 	} else {
 		return false;
+	}
+}
+
+tuple<double, double, double, double> Process::get_border_coordinates() {
+	double xmin = numeric_limits<double>::max();
+	double xmax = -numeric_limits<double>::max();
+	double ymin = xmin, ymax = xmax;
+	for (int i = 0; i < users.size(); ++i) {
+		if (xmin > users[i].get_xpos()) {
+			xmin = users[i].get_xpos();
+		}
+		if (xmax < users[i].get_xpos()) {
+			xmax = users[i].get_xpos();
+		}
+		if (users[i].get_ypos() < ymin) {
+			ymin = users[i].get_ypos();
+		}
+		if (users[i].get_ypos() > ymax) {
+			ymax = users[i].get_ypos();
+		}
+	}
+	for (int i = 0; i < events.size(); ++i) {
+		if (xmin > events[i].get_xpos()) {
+			xmin = events[i].get_xpos();
+		}
+		if (xmax < events[i].get_xpos()) {
+			xmax = events[i].get_xpos();
+		}
+		if (events[i].get_ypos() < ymin) {
+			ymin = events[i].get_ypos();
+		}
+		if (events[i].get_ypos() > ymax) {
+			ymax = events[i].get_ypos();
+		}
+	}
+	return make_tuple(xmin, xmax, ymin, ymax);
+}
+
+void Process::set_4areas(double xmid, double ymid) {
+	same_area_users.clear();
+	same_area_events.clear();
+	same_area_users.resize(4, set<int>());
+	same_area_events.resize(4, set<int>());
+	for (int i = 0; i < users.size(); ++i) {
+		if (users[i].get_xpos() < xmid) {
+			if (users[i].get_ypos() < ymid) {
+				users[i].set_area(0);
+				same_area_users[0].insert(i);
+			} else {
+				users[i].set_area(1);
+				same_area_users[1].insert(i);
+			}
+		} else {
+			if (users[i].get_ypos() < ymid) {
+				users[i].set_area(2);
+				same_area_users[2].insert(i);
+			} else {
+				users[i].set_area(3);
+				same_area_users[3].insert(i);
+			}
+		}
+	}
+	for (int i = 0; i < events.size(); ++i) {
+		if (events[i].get_xpos() < xmid) {
+			if (events[i].get_ypos() < ymid) {
+				events[i].set_area(0);
+				same_area_events[0].insert(i);
+			} else {
+				events[i].set_area(1);
+				same_area_events[1].insert(i);
+			}
+		} else {
+			if (events[i].get_ypos() < ymid) {
+				events[i].set_area(2);
+				same_area_events[2].insert(i);
+			} else {
+				events[i].set_area(3);
+				same_area_events[3].insert(i);
+			}
+		}
 	}
 }

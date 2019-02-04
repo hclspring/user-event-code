@@ -11,6 +11,7 @@ protected:
 	double xpos;
 	double ypos;
 	int upper_capacity;
+	int area;
 //	std::set<int> assigned_users_indices;
 
 public:
@@ -24,6 +25,7 @@ public:
 	double get_xpos();
 	double get_ypos();
 	int get_upper_capacity();
+	int get_area();
 
 public:
 	void set_id(int id);
@@ -31,6 +33,7 @@ public:
 	void set_xpos(double xpos);
 	void set_ypos(double ypos);
 	void set_upper_capacity(int upper_capacity);
+	void set_area(int area);
 };
 
 #endif

@@ -21,7 +21,7 @@ double Util::calc_euc_distance(double x1, double y1, double x2, double y2){
 
 double Util::get_max_value(const vector<vector<double> > &x) {
 	assert(x.size() > 0 && x[0].size() > 0);
-	double max_value = numeric_limits<double>::min();
+	double max_value = -numeric_limits<double>::max();
 	for (int i = 0; i < x.size(); ++i) {
 		for (int j = 0; j < x[i].size(); ++j) {
 			if (max_value < x[i][j]) {
