@@ -95,6 +95,7 @@ public:
 	void calc_matches_online_greedy(double alpha);
 	void calc_matches_onlineF_greedy(double alpha, double& theta);
 	void calc_matches_offline_FDTA(double alpha);
+	void calc_matches_PDTA(double alpha);
 
 	// calculate assignment cost
 	double calc_cut_cost(double alpha, double beta, double gamma);

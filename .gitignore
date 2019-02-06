@@ -40,6 +40,7 @@ src/exhaustive_offline
 src/online_greedy
 src/onlineF_greedy
 src/offline_FDTA
+src/PDTA
 
 # test data
 src/test.cc

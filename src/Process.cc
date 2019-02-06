@@ -768,6 +768,45 @@ void Process::calc_matches_offline_FDTA(double alpha) {
 	}
 }
 
+void Process::calc_matches_PDTA(double alpha) {
+	initialize_null_matches();
+	for (int i = 0; i < num_users; ++i) {
+		int arrived_user = users_arrival[i];
+		int user_area = users[arrived_user].get_area();
+		assert(user_area >= 0 && user_area < same_area_events.size());
+		// calculate utilities, with same area or different area
+		vector<MarginalGain> utilities_same_area, utilities_diff_area;
+		for (int area_i = 0; area_i < same_area_events.size(); ++area_i) {
+			if (area_i == user_area) { // same area with the arrived user
+				for (set<int>::iterator it = same_area_events[area_i].begin(); it != same_area_events[area_i].end(); ++it) {
+					utilities_same_area.push_back(MarginalGain(arrived_user, *it, calc_utility(arrived_user, *it, alpha)));
+				}
+			} else { // different area with the arrived user
+				for (set<int>::iterator it = same_area_events[area_i].begin(); it != same_area_events[area_i].end(); ++it) {
+					utilities_diff_area.push_back(MarginalGain(arrived_user, *it, calc_utility(arrived_user, *it, alpha)));
+				}
+			}
+		}
+		// sort utilities
+		sort(utilities_same_area.begin(), utilities_same_area.end(), MarginalGain::compare_desc);
+		sort(utilities_diff_area.begin(), utilities_diff_area.end(), MarginalGain::compare_desc);
+		// deal with events in the same area
+		for (int i = 0; i < utilities_same_area.size(); ++i) {
+			int event = utilities_same_area[i].get_event();
+			if (check_match_condition(arrived_user, event)) {
+				match(arrived_user, event);
+			}
+		}
+		// deal with events in the different area
+		if (utilities_diff_area.size() > 0) {
+			int event = utilities_diff_area[0].get_event();
+			if (check_match_condition(arrived_user, event)) {
+				match(arrived_user, event);
+			}
+		}
+	}
+}
+
 double Process::calc_cut_cost(double alpha, double beta, double gamma)
 {
 	double sum_distance = 0.0, sum_similarity = 0.0, sum_weight = 0.0;

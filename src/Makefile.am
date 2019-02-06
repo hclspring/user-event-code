@@ -1,4 +1,4 @@
-bin_PROGRAMS=preprocess clique_offline clique_online cut_offline cut_online compute_cost_to_file compute_cost_to_screen cut_online_specific_arrival exhaustive_offline online_greedy onlineF_greedy offline_FDTA
+bin_PROGRAMS=preprocess clique_offline clique_online cut_offline cut_online compute_cost_to_file compute_cost_to_screen cut_online_specific_arrival exhaustive_offline online_greedy onlineF_greedy offline_FDTA PDTA
 INCLUDES = -I/usr/local/include/igraph
 #bin_PROGRAMS=preprocess test
 
@@ -51,3 +51,7 @@ onlineF_greedy_SOURCES=onlineF_greedy.cc Process.cc Process.h User.cc User.h Eve
 offline_FDTA_LDADD=-ligraph
 offline_FDTA_LDFLAGS=-static
 offline_FDTA_SOURCES=offline_FDTA.cc Process.cc Process.h User.cc User.h Event.cc Event.h Util.cc Util.h MarginalGainHeap.h MarginalGainHeap.cc MarginalGain.h MarginalGain.cc UserEventBase.h UserEventBase.cc UtilIgraph.h UtilIgraph.cc
+
+PDTA_LDADD=-ligraph
+PDTA_LDFLAGS=-static
+PDTA_SOURCES=PDTA.cc Process.cc Process.h User.cc User.h Event.cc Event.h Util.cc Util.h MarginalGainHeap.h MarginalGainHeap.cc MarginalGain.h MarginalGain.cc UserEventBase.h UserEventBase.cc UtilIgraph.h UtilIgraph.cc
