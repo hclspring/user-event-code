@@ -13,27 +13,27 @@ UserEventBase::~UserEventBase(){
 	attr.clear();
 }
 
-int UserEventBase::get_id(){
+int UserEventBase::get_id() const {
 	return id;
 }
 
-std::vector<double> UserEventBase::get_attr(){
+std::vector<double> UserEventBase::get_attr() const {
 	return attr;
 }
 
-double UserEventBase::get_xpos(){
+double UserEventBase::get_xpos() const {
 	return xpos;
 }
 
-double UserEventBase::get_ypos(){
+double UserEventBase::get_ypos() const {
 	return ypos;
 }
 
-int UserEventBase::get_upper_capacity(){
+int UserEventBase::get_upper_capacity() const {
 	return upper_capacity;
 }
 
-int UserEventBase::get_area(){
+int UserEventBase::get_area() const {
 	return area;
 }
 

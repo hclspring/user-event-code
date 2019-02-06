@@ -6,6 +6,7 @@
 #include "Event.h"
 #include "UserEventBase.h"
 #include "Util.h"
+#include "UtilIgraph.h"
 #include "MarginalGainHeap.h"
 #include "MarginalGain.h"
 
@@ -149,7 +150,11 @@ bool Process::read_preprocessed_data(std::string filename){
 	// read upper capacity of users, if there exists this part (in other words, version = 2)
 	if (version >= 2) {
 		read_user_capacities(ifs);
-		read_conflict_events(ifs);
+		getline(ifs, nextline, '\n');
+		vector<int> ints = Util::read_line_ints(nextline);
+		assert(ints.size() > 0);
+		int conflict_count = ints[0];
+		read_conflict_events(ifs, conflict_count);
 	}
 	// read area information of users and events
 	if (version >= 3) {
@@ -363,6 +368,7 @@ bool Process::write_preprocessed_data(std::string filename){
 
 	// write conflict events
 	typedef set<pair<int, int> > SETPAIR;
+	ofs << conflict_events.size() << endl; // first write the number of conflicts
 	for(SETPAIR::iterator it = conflict_events.begin(); it != conflict_events.end(); ++it) {
 		ofs << it->first << " " << it->second << endl;
 	}
@@ -753,11 +759,13 @@ void Process::calc_matches_onlineF_greedy(double alpha, double& theta) {
 	}
 }
 
-void Process::calc_matches_offline_FDTA() {
+void Process::calc_matches_offline_FDTA(double alpha) {
 	initialize_null_matches();
-
-	igraph_t g;
-	igraph_destroy(&g);
+	vector<set<int> > user_candidate_events;
+	UtilIgraph::calc_temporary_match_with_maxflow_and_pushrelabel(users, events, same_area_users, same_area_events, user_candidate_events);
+	for (int user = 0; user < user_candidate_events.size(); ++user) {
+		match_inconflict_events_with_greedy_utility(user, user_candidate_events[user], alpha);
+	}
 }
 
 double Process::calc_cut_cost(double alpha, double beta, double gamma)
@@ -1063,10 +1071,21 @@ std::string Process::read_weight_matrix(std::ifstream &ifs) {
 	return line;
 }
 
+void Process::read_conflict_events(std::ifstream &ifs, int conflict_count) {
+	conflict_events.clear();
+	string line;
+	for (int i = 0; i < conflict_count; ++i) {
+		getline(ifs, line, '\n');
+		vector<int> ints = Util::read_line_ints(line);
+		assert(ints.size() == 2);
+		conflict_events.insert(make_pair(ints[0], ints[1]));
+	}
+}
+
 void Process::read_conflict_events(std::ifstream &ifs) {
 	conflict_events.clear();
 	string line;
-	while (getline(ifs, line, '\n')) {
+	while(getline(ifs, line, '\n')) {
 		vector<int> ints = Util::read_line_ints(line);
 		assert(ints.size() == 2);
 		conflict_events.insert(make_pair(ints[0], ints[1]));
@@ -1089,6 +1108,7 @@ void Process::read_area_info(std::ifstream &ifs) {
 		ints = Util::read_line_ints(line);
 		for (int j = 0; j < ints.size(); ++j) {
 			same_area_users[i].insert(ints[j]);
+			users[ints[j]].set_area(i);
 		}
 	}
 	// 再读同一区域的活动信息
@@ -1102,6 +1122,7 @@ void Process::read_area_info(std::ifstream &ifs) {
 		ints = Util::read_line_ints(line);
 		for (int j = 0; j < ints.size(); ++j) {
 			same_area_events[i].insert(ints[j]);
+			events[ints[j]].set_area(i);
 		}
 	}
 }
@@ -1403,3 +1424,21 @@ void Process::set_4areas(double xmid, double ymid) {
 		}
 	}
 }
+	
+void Process::match_inconflict_events_with_greedy_utility(int user, const std::set<int> & candidate_events, double alpha) {
+	vector<MarginalGain> utilities;
+	for (set<int>::const_iterator it = candidate_events.begin(); it != candidate_events.end(); ++it) {
+		int event = *it;
+		utilities.push_back(MarginalGain(user, event, calc_utility(user, event, alpha)));
+	}
+	sort(utilities.begin(), utilities.end(), MarginalGain::compare_desc);
+	for (int i = 0; i < utilities.size(); ++i) {
+		int event = utilities[i].get_event();
+		if (check_match_condition(user, event)) {
+			match(user, event);
+		}
+	}
+}
+
+
+

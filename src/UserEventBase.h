@@ -20,12 +20,12 @@ public:
 	~UserEventBase();
 
 public:
-	int get_id();
-	std::vector<double> get_attr();
-	double get_xpos();
-	double get_ypos();
-	int get_upper_capacity();
-	int get_area();
+	int get_id() const;
+	std::vector<double> get_attr() const;
+	double get_xpos() const;
+	double get_ypos() const;
+	int get_upper_capacity() const;
+	int get_area() const;
 
 public:
 	void set_id(int id);

@@ -94,7 +94,7 @@ public:
 	// matching algorithm implementation
 	void calc_matches_online_greedy(double alpha);
 	void calc_matches_onlineF_greedy(double alpha, double& theta);
-	void calc_matches_offline_FDTA();
+	void calc_matches_offline_FDTA(double alpha);
 
 	// calculate assignment cost
 	double calc_cut_cost(double alpha, double beta, double gamma);
@@ -131,6 +131,7 @@ private:
 	void read_similarity_matrix(std::ifstream &ifs);//读人与活动的相似度
 	void read_normalized_similarity_matrix(std::ifstream &ifs);//读人与活动的相似度
 	std::string read_weight_matrix(std::ifstream &ifs);//读人与人之间的权重（网络），然后返回下一行
+	void read_conflict_events(std::ifstream &ifs, int conflict_count);//读冲突的活动清单
 	void read_conflict_events(std::ifstream &ifs);//读冲突的活动清单
 	void read_area_info(std::ifstream &ifs); //读同一区域的人和活动
 
@@ -174,6 +175,8 @@ private:
 	std::tuple<double, double, double, double> get_border_coordinates(); // returned tuples are: xmin, xmax, ymin, ymax
 	void set_4areas(double xmid, double ymid); // set areas of users and events
 
+	// 从candidate events里按照utility贪心选择一部分
+	void match_inconflict_events_with_greedy_utility(int user, const std::set<int> & candidate_events, double alpha);
 };
 
 
