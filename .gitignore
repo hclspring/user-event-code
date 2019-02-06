@@ -47,3 +47,4 @@ src/test.cc
 src/test.o
 src/test
 src/temp/*
+src/temp
