@@ -1,6 +1,7 @@
 #include <ctime>
 
 #include "Process.h"
+#include "Util.h"
 
 using namespace std;
 
@@ -24,6 +25,7 @@ int main(const int argc, const char** argv)
 	}
 
 	proc.read_preprocessed_data(input_file);
+	vector<double> match_utilities;
 	for (int i = 0; i < count; ++i) {
 		proc.gen_rand_arrival();
 		proc.calc_matches_online_greedy(alpha);
@@ -36,6 +38,9 @@ int main(const int argc, const char** argv)
 
 		proc.write_arrival_sequence(out_arrival_file);
 		proc.write_match_result(out_match_file, alpha);
+		
+		match_utilities.push_back(proc.calc_match_utility(alpha));
 	}
+	cout << "Utility mean: " << Util::calc_mean(match_utilities) << endl;
 	return 0;
 }

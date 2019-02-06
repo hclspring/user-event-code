@@ -52,6 +52,7 @@ private:
 	std::vector<std::set<int> > user_events; // which events each user matched, 1 user -> many events
 	double cut_cost;
 	double clique_cost;
+	double match_utility;
 
 public:
 	Process();

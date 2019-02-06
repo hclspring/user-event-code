@@ -21,6 +21,9 @@ public:
 	static double get_min_value(const std::vector<std::vector<double> > &x);
 	static void multiply(std::vector<std::vector<double> > &x, double y);
 
+	// Vector:
+	static double calc_mean(const std::vector<double> & v);
+
 	// parse strings:
 	static std::vector<double> read_line_doubles(const std::string &line);
 	static std::vector<int> read_line_ints(const std::string &line);

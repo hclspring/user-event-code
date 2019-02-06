@@ -54,6 +54,16 @@ void Util::multiply(vector<vector<double> > &x, double y) {
 	}
 }
 
+double Util::calc_mean(const std::vector<double> & v) {
+	int n = v.size();
+	assert(n > 0);
+	double sum;
+	for (int i = 0; i < n; ++i) {
+		sum += v[i];
+	}
+	return sum / n;
+}
+
 vector<double> Util::read_line_doubles(const string &line)
 {
 	stringstream ss(line);

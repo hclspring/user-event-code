@@ -873,6 +873,7 @@ double Process::calc_match_utility(double alpha) {
 			}
 		}
 	}
+	this->match_utility = result;
 	return result;
 }
 
