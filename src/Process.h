@@ -113,6 +113,10 @@ public:
 	// calculate match utility
 	double calc_match_utility(double alpha);
 
+	// 获取运行时间和内存参数
+	double get_running_time_ms();
+	std::string get_memusage_peak();
+
 private:
 	// 初始化空分配assignment
 	void initialize_null_assignments();
@@ -175,10 +179,8 @@ private:
 	// 检查当前的分配是否符合要求
 	bool check_assignments_feasible();
 
-    // 获取运行时间和内存参数
-	double get_running_time_ms();
+    // 小函数
 	bool is_cut(const std::string & kind);
-	std::string get_memusage_peak();
 	std::string get_pid();
 	
 	// 检查是否可以match用户u和活动v

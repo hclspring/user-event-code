@@ -432,6 +432,7 @@ bool Process::write_match_result(string filename, double alpha, double theta) {
 		ofs << "#theta = " << theta << endl;
 	}
 	ofs << "#Utility = " << calc_match_utility(alpha) << endl;
+	ofs << "#Running time: " << get_running_time_ms() << " ms; Maximal memory usage: " << get_memusage_peak() << endl;
 	ofs << "#User [event_count]: events" << endl;
 	for (int i = 0; i < user_events.size(); ++i) {
 		ofs << i + 1 << " [" << user_events[i].size() << "]:";
@@ -828,6 +829,7 @@ void Process::calc_assignments_cut_online(){
 }
 
 void Process::calc_matches_online_greedy(double alpha) {
+	start_clock = clock();
 	initialize_null_matches();
 	for (int arrived_user_index = 0; arrived_user_index < num_users; ++arrived_user_index) {
 		// determine the current user
@@ -846,9 +848,11 @@ void Process::calc_matches_online_greedy(double alpha) {
 			}
 		}
 	}
+	end_clock = clock();
 }
 
 void Process::calc_matches_onlineF_greedy(double alpha, double& theta) {
+	start_clock = clock();
 	initialize_null_matches();
 	// find the min and max of utilities
 	calc_utility_matrix(alpha);
@@ -874,18 +878,22 @@ void Process::calc_matches_onlineF_greedy(double alpha, double& theta) {
 			}
 		}
 	}
+	end_clock = clock();
 }
 
 void Process::calc_matches_offline_FDTA(double alpha) {
+	start_clock = clock();
 	initialize_null_matches();
 	vector<set<int> > user_candidate_events;
 	UtilIgraph::calc_temporary_match_with_maxflow_and_pushrelabel(users, events, same_area_users, same_area_events, user_candidate_events);
 	for (int user = 0; user < user_candidate_events.size(); ++user) {
 		match_inconflict_events_with_greedy_utility(user, user_candidate_events[user], alpha);
 	}
+	end_clock = clock();
 }
 
 void Process::calc_matches_PDTA(double alpha) {
+	start_clock = clock();
 	initialize_null_matches();
 	for (int i = 0; i < num_users; ++i) {
 		int arrived_user = users_arrival[i];
@@ -922,6 +930,7 @@ void Process::calc_matches_PDTA(double alpha) {
 			}
 		}
 	}
+	end_clock = clock();
 }
 
 double Process::calc_cut_cost(double alpha, double beta, double gamma)
@@ -995,36 +1004,6 @@ double Process::calc_clique_cost(const vector<int> & cur_assignment, double alph
 
 }
 
-/*
-double Process::calc_clique_cost(double alpha, double beta, double gamma)
-{
-	double sum_distance = 0.0, sum_similarity = 0.0, sum_weight = 0.0;
-
-	for(int i = 0; i < num_users; i++){
-		sum_distance += distance_user_event.at(i).at(user_affinities[i]);
-		sum_similarity += similarity_user_event.at(i).at(user_affinities[i]);
-	}
-
-	for(int i = 0; i < num_events; i++){
-		vector<int> temp_users;
-		for(set<int>::iterator it = event_users[i].begin(); it != event_users[i].end(); it++){
-			set<int>::iterator jt = it;
-			for (++jt; jt != event_users[i].end(); ++jt) {
-				sum_weight += weight_user_user.at(*it).at(*jt); // 只加一遍j--k，不加k--j
-			}
-		}
-	}
-
-	if (fabs(sum_distance) < 0.000001) {
-		clique_cost = alpha * MAX + beta * sum_similarity + gamma * sum_weight;
-	} else {
-		clique_cost = 1.0 * alpha/sum_distance + beta*sum_similarity + gamma*sum_weight;
-	}
-	return clique_cost;
-
-}
-*/
-
 double Process::calc_match_utility(double alpha) {
 	double result = 0;
 	for (int user = 0; user < num_users; ++user) {
@@ -1040,6 +1019,39 @@ double Process::calc_match_utility(double alpha) {
 	this->match_utility = result;
 	return result;
 }
+
+double Process::get_running_time_ms()
+{
+	long delta_clock = end_clock - start_clock;
+	return 1000.0 * delta_clock / CLOCKS_PER_SEC;
+}
+
+string Process::get_memusage_peak() {
+	string status_file = "/proc/" + get_pid() + "/status";
+	ifstream ifs(status_file.c_str());
+	if (ifs.fail()) {
+		cerr << "Read file " << status_file << " error." << endl;
+		return "error";
+	}
+	string result, line, name;
+	while (getline(ifs, line, '\n')) {
+		stringstream sstr;
+		sstr << line;
+		sstr >> name;
+		if (name.compare("VmPeak:") == 0) {
+			sstr >> line;
+			result = line; // 数值
+			sstr >> line;
+			result.append(" ").append(line); // 单位
+			ifs.close();
+			return result;
+		}
+	}
+	ifs.close();
+	cerr << "Didn't find VmPeak line." << endl;
+	return "error";
+}
+
 
 void Process::initialize_null_assignments(){
 	user_affinities.clear();
@@ -1528,44 +1540,12 @@ bool Process::check_assignments_feasible() {
 	return true;
 }
 
-double Process::get_running_time_ms()
-{
-	long delta_clock = end_clock - start_clock;
-	return 1000.0 * delta_clock / CLOCKS_PER_SEC;
-}
-
 bool Process::is_cut(const std::string & kind) {
 	if (kind.compare("cut") == 0) {
 		return true;
 	} else {
 		return false;
 	}
-}
-
-string Process::get_memusage_peak() {
-	string status_file = "/proc/" + get_pid() + "/status";
-	ifstream ifs(status_file.c_str());
-	if (ifs.fail()) {
-		cerr << "Read file " << status_file << " error." << endl;
-		return "error";
-	}
-	string result, line, name;
-	while (getline(ifs, line, '\n')) {
-		stringstream sstr;
-		sstr << line;
-		sstr >> name;
-		if (name.compare("VmPeak:") == 0) {
-			sstr >> line;
-			result = line; // 数值
-			sstr >> line;
-			result.append(" ").append(line); // 单位
-			ifs.close();
-			return result;
-		}
-	}
-	ifs.close();
-	cerr << "Didn't find VmPeak line." << endl;
-	return "error";
 }
 
 string Process::get_pid() {

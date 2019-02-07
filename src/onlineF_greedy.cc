@@ -26,10 +26,12 @@ int main(const int argc, const char** argv)
 
 	proc.read_preprocessed_data(input_file);
 	vector<double> match_utilities;
+	vector<double> running_times;
 	for (int i = 0; i < count; ++i) {
 		double theta;
 		proc.gen_rand_arrival();
 		proc.calc_matches_onlineF_greedy(alpha, theta);
+		running_times.push_back(proc.get_running_time_ms());
 
 		string out_arrival_file = output_dir, out_match_file = output_dir;
 		string count_str = to_string(i + 1);
@@ -43,5 +45,6 @@ int main(const int argc, const char** argv)
 		match_utilities.push_back(proc.calc_match_utility(alpha));
 	}
 	cout << "Utility mean: " << Util::calc_mean(match_utilities) << endl;
+	cout << "Running time mean: " << Util::calc_mean(running_times) << " ms" << endl;
 	return 0;
 }
