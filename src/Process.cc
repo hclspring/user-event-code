@@ -9,6 +9,7 @@
 #include "UtilIgraph.h"
 #include "MarginalGainHeap.h"
 #include "MarginalGain.h"
+#include "Config.h"
 
 using namespace std;
 
@@ -198,6 +199,7 @@ bool Process::read_assignment_data(string filename)
 	initialize_null_assignments();
 	string line;
 	vector<int> temp;
+	getline(ifs, line, '\n'); //第一行记录求解assignment的时间，所以这里跳过这行
 	for(int i = 0; i < num_users; i++){
 		getline(ifs, line, '\n');
 		temp = Util::read_line_ints(line);
@@ -411,6 +413,7 @@ bool Process::write_assignment_result(string filename)
 		cerr << "Write file " << filename << " error." << endl;
 		return false;
 	}
+	ofs << "Running time: " << get_running_time_ms() << " ms; Maximal memory usage: " << get_memusage_peak() << endl;
 	for(int i = 0; i < user_affinities.size(); i++){
 		ofs << i+1 << " " << user_affinities[i]+1 << endl;
 	}
@@ -501,6 +504,7 @@ bool Process::write_arrival_sequence(string filename)
 }
 
 void Process::calc_assignments_clique_offline(){
+    start_clock = clock();
 	initialize_null_assignments();
 
 	MarginalGainHeap mgh(MAXHEAP, num_users, num_events);
@@ -528,10 +532,12 @@ void Process::calc_assignments_clique_offline(){
 			}
 		}
 	}
+	end_clock = clock();
 }
 
 void Process::calc_assignments_cut_offline()
 {
+    start_clock = clock();
 	initialize_null_assignments();
 
 	MarginalGainHeap heap(MINHEAP, num_users, num_events);
@@ -559,16 +565,13 @@ void Process::calc_assignments_cut_offline()
 			}
 		}
 	}
+	end_clock = clock();
 }
 
 void Process::calc_assignments_exhaustive_offline(const std::string & kind, const double & alpha, const double & beta, const double & gamma)
 {
-	bool use_cut;
-	if (kind.compare("cut") == 0) {
-		use_cut = true;
-	} else {
-		use_cut = false;
-	}
+    start_clock = clock();
+	bool use_cut = is_cut(kind);
 
 	vector<int> optimal_user_affinities;
 	double optimal_cost;
@@ -615,11 +618,123 @@ void Process::calc_assignments_exhaustive_offline(const std::string & kind, cons
 		cut_cost = -1;
 		clique_cost = -1;
 	}
+	end_clock = clock();
 }
 
+void Process::calc_assignments_annealing_offline(const std::string & kind, const double & alpha, const double & beta, const double & gamma)
+{
+	start_clock = clock();
+	Config config;
+//	initialize_null_assignments();
+	bool use_cut = is_cut(kind);
+
+	// 计算初始解
+	vector<int> optimal_assignment;
+	double optimal_cost, new_cost, old_cost, delta_cost;
+	int worse_cost_count = 0;
+	vector<int> new_assignment = SA_init_random_assignment(), old_assignment;
+	new_cost = (use_cut ? calc_cut_cost(new_assignment, alpha, beta, gamma) : calc_clique_cost(new_assignment, alpha, beta, gamma));
+	optimal_assignment = new_assignment;
+	optimal_cost = new_cost;
+	cout << "START: cur_cost = " << new_cost << ", optimal_cost = " << optimal_cost << endl;
+
+	int T = config.get_sa_T0();
+	while (T >= 0) {
+		// 计算邻域解
+		old_cost = new_cost;
+		old_assignment = new_assignment;
+		new_assignment = SA_find_nearby_random_assignment(old_assignment);
+		new_cost = (use_cut ? calc_cut_cost(new_assignment, alpha, beta, gamma) : calc_clique_cost(new_assignment, alpha, beta, gamma));
+		delta_cost = new_cost - old_cost;
+		cout << "T = " << T << ": cur_cost = " << new_cost;
+
+		// 检查是更好还是更快，做相应处理
+		if (use_cut) {
+			if (delta_cost < 0) {
+				worse_cost_count = 0;
+				if (optimal_cost > new_cost) {
+					optimal_assignment = new_assignment;
+					optimal_cost = new_cost;
+				}
+				cout << ", AC, optimal_cost = " << optimal_cost << endl;
+			} else {
+				++worse_cost_count;
+				double p = SA_calc_accept_new_assignment_prob(delta_cost, T, config.get_sa_R());
+				double rand_number = (rand() % CONST_DIVIDER) * 1.0 / CONST_DIVIDER;
+				// 以p概率接受，1-p拒绝
+				if (rand_number > p) {
+					new_assignment = old_assignment;
+					new_cost = old_cost;
+					cout << ", p = " << p << ", DN, optimal_cost = " << optimal_cost << endl;
+				} else {
+					cout << ", p = " << p << ", AC, optimal_cost = " << optimal_cost << endl;
+				}
+			}
+		} else {
+			if (delta_cost > 0) {
+				worse_cost_count = 0;
+				if (optimal_cost < new_cost) {
+					optimal_assignment = new_assignment;
+					optimal_cost = new_cost;
+				}
+				cout << ", AC, optimal_cost = " << optimal_cost << endl;
+			} else {
+				++worse_cost_count;
+				double p = SA_calc_accept_new_assignment_prob(delta_cost, T, config.get_sa_R());
+				double rand_number = (rand() % CONST_DIVIDER) * 1.0 / CONST_DIVIDER;
+				// 以p概率接受，1-p拒绝
+				if (rand_number > p) {
+					new_assignment = old_assignment;
+					new_cost = old_cost;
+					cout << ", p = " << p << ", DN, optimal_cost = " << optimal_cost << endl;
+				} else {
+					cout << ", p = " << p << ", AC, optimal_cost = " << optimal_cost << endl;
+				}
+			}
+		}
+
+		// 如果总是向坏的方向发展，考虑提高温度
+		if (worse_cost_count > config.get_sa_worse_count_th()) {
+			while ((use_cut && delta_cost > 0) || (!use_cut && delta_cost < 0)) {
+				cout << "T = " << T << ": cur_cost = " << new_cost << ", optimal_cost = " << optimal_cost << endl;
+				T = T + config.get_sa_deltaT();
+				old_cost = new_cost;
+				old_assignment = new_assignment;
+				new_assignment = SA_find_nearby_random_assignment(old_assignment);
+				new_cost = (use_cut ? calc_cut_cost(new_assignment, alpha, beta, gamma) : calc_clique_cost(new_assignment, alpha, beta, gamma));
+				delta_cost = new_cost - old_cost;
+			} // end while
+
+			worse_cost_count = 0;
+			if ((use_cut && optimal_cost > new_cost) && (!use_cut && optimal_cost < new_cost)) {
+				optimal_assignment = new_assignment;
+				optimal_cost = new_cost;
+			}
+			cout << "T = " << T << ": cur_cost = " << new_cost << ", optimal_cost = " << optimal_cost << endl;
+		}// end if
+		
+		T = T - config.get_sa_deltaT();
+	}// end while
+
+	initialize_null_assignments();
+	for (int i = 0; i < optimal_assignment.size(); ++i) {
+		assign_trial(i, optimal_assignment[i]);
+	}
+	
+	if (use_cut) {
+		cut_cost = optimal_cost;
+		clique_cost = 0;
+	} else {
+		cut_cost = 0;
+		clique_cost = optimal_cost;
+	}
+
+	end_clock = clock();
+}
 
 void Process::calc_assignments_clique_online()
 {
+    start_clock = clock();
 	initialize_null_assignments();
 	for (int arrived_user_index = 0; arrived_user_index < num_users; ++arrived_user_index) {
 		int arrived_user = users_arrival[arrived_user_index];
@@ -658,9 +773,11 @@ void Process::calc_assignments_clique_online()
 		}
 		assign_trial(arrived_user, max_v);
 	}
+	end_clock = clock();
 }
 
 void Process::calc_assignments_cut_online(){
+    start_clock = clock();
 	initialize_null_assignments();
 	for (int arrived_user_index = 0; arrived_user_index < num_users; ++arrived_user_index) {
 		int arrived_user = users_arrival[arrived_user_index];
@@ -707,7 +824,7 @@ void Process::calc_assignments_cut_online(){
 		}
 		assign_trial(arrived_user, min_v);
 	}
-
+    end_clock = clock();
 }
 
 void Process::calc_matches_online_greedy(double alpha) {
@@ -809,22 +926,27 @@ void Process::calc_matches_PDTA(double alpha) {
 
 double Process::calc_cut_cost(double alpha, double beta, double gamma)
 {
+	return calc_cut_cost(user_affinities, alpha, beta, gamma);
+}
+
+double Process::calc_cut_cost(const vector<int> & cur_assignment, double alpha, double beta, double gamma)
+{
 	double sum_distance = 0.0, sum_similarity = 0.0, sum_weight = 0.0;
 
 	for(int i = 0; i < num_users; i++){
-		sum_distance += distance_user_event.at(i).at(user_affinities[i]);
-		sum_similarity += similarity_user_event.at(i).at(user_affinities[i]);
+		sum_distance += distance_user_event.at(i).at(cur_assignment[i]);
+		sum_similarity += similarity_user_event.at(i).at(cur_assignment[i]);
 	}
 
 	for (int i = 0; i < num_users; ++i) {
 		for (list<int>::iterator it = graph_users[i].begin(); it != graph_users[i].end(); ++it) {
 			int nei = *it;
-			if (user_affinities[i] != user_affinities[nei]) {
+			if (cur_assignment[i] != cur_assignment[nei]) {
 				sum_weight += weight_user_user[i][nei];
 			}
 		}
 	}
-
+		
 	if (fabs(sum_similarity) < 0.000001) {
 		cut_cost = alpha*sum_distance + beta * MAX + gamma*sum_weight;
 	} else {
@@ -833,6 +955,47 @@ double Process::calc_cut_cost(double alpha, double beta, double gamma)
 	return cut_cost;
 }
 
+
+double Process::calc_clique_cost(double alpha, double beta, double gamma)
+{
+	return calc_clique_cost(user_affinities, alpha, beta, gamma);
+}
+
+double Process::calc_clique_cost(const vector<int> & cur_assignment, double alpha, double beta, double gamma)
+{
+	double sum_distance = 0.0, sum_similarity = 0.0, sum_weight = 0.0;
+
+	for(int i = 0; i < num_users; i++){
+		sum_distance += distance_user_event.at(i).at(cur_assignment[i]);
+		sum_similarity += similarity_user_event.at(i).at(cur_assignment[i]);
+	}
+
+	vector<set<int>> attend_users;
+	attend_users.resize(num_events);
+	for(int i = 0; i < num_users; ++i) {
+		attend_users[cur_assignment[i]].insert(i);
+	}
+
+	for(int i = 0; i < num_events; i++){
+		vector<int> temp_users;
+		for(set<int>::iterator it = attend_users[i].begin(); it != attend_users[i].end(); it++){
+			set<int>::iterator jt = it;
+			for (++jt; jt != attend_users[i].end(); ++jt) {
+				sum_weight += weight_user_user.at(*it).at(*jt); // 只加一遍j--k，不加k--j
+			}
+		}
+	}
+
+	if (fabs(sum_distance) < 0.000001) {
+		clique_cost = alpha * MAX + beta * sum_similarity + gamma * sum_weight;
+	} else {
+		clique_cost = 1.0 * alpha/sum_distance + beta*sum_similarity + gamma*sum_weight;
+	}
+	return clique_cost;
+
+}
+
+/*
 double Process::calc_clique_cost(double alpha, double beta, double gamma)
 {
 	double sum_distance = 0.0, sum_similarity = 0.0, sum_weight = 0.0;
@@ -860,6 +1023,7 @@ double Process::calc_clique_cost(double alpha, double beta, double gamma)
 	return clique_cost;
 
 }
+*/
 
 double Process::calc_match_utility(double alpha) {
 	double result = 0;
@@ -1364,6 +1528,55 @@ bool Process::check_assignments_feasible() {
 	return true;
 }
 
+double Process::get_running_time_ms()
+{
+	long delta_clock = end_clock - start_clock;
+	return 1000.0 * delta_clock / CLOCKS_PER_SEC;
+}
+
+bool Process::is_cut(const std::string & kind) {
+	if (kind.compare("cut") == 0) {
+		return true;
+	} else {
+		return false;
+	}
+}
+
+string Process::get_memusage_peak() {
+	string status_file = "/proc/" + get_pid() + "/status";
+	ifstream ifs(status_file.c_str());
+	if (ifs.fail()) {
+		cerr << "Read file " << status_file << " error." << endl;
+		return "error";
+	}
+	string result, line, name;
+	while (getline(ifs, line, '\n')) {
+		stringstream sstr;
+		sstr << line;
+		sstr >> name;
+		if (name.compare("VmPeak:") == 0) {
+			sstr >> line;
+			result = line; // 数值
+			sstr >> line;
+			result.append(" ").append(line); // 单位
+			ifs.close();
+			return result;
+		}
+	}
+	ifs.close();
+	cerr << "Didn't find VmPeak line." << endl;
+	return "error";
+}
+
+string Process::get_pid() {
+	pid_t pid = getpid();
+	stringstream sstr;
+	sstr << pid;
+	string res;
+	sstr >> res;
+	return res;
+}
+
 bool Process::check_match_condition(int user, int event) {
 	if (user < 0 || user >= num_users) return false;
 	if (event < 0 || event >= num_events) return false;
@@ -1479,6 +1692,86 @@ void Process::match_inconflict_events_with_greedy_utility(int user, const std::s
 		}
 	}
 }
+
+vector<int> Process::SA_init_random_assignment()
+{
+	// First step: randomly sort n users
+	vector<int> users_order;
+	for (int i = 0; i < num_users; ++i) {
+		users_order.push_back(i);
+	}
+	random_shuffle(users_order.begin(), users_order.end());
+
+	// Second step: generate accumulated array of capacities
+	vector<int> accu_cap;
+	int sum = 0;
+	accu_cap.push_back(sum);
+	for (int i = 0; i < num_events; ++i) {
+		sum += events[i].get_upper_capacity();
+		accu_cap.push_back(sum);
+	}
+
+	// Third step: generate n random sorted numbers in [0, sum]
+	vector<int> a;
+	for (int i = 0; i < num_users; ++i) {
+		a.push_back(1 + rand() % sum);
+	}
+	sort(a.begin(), a.end());
+	
+	// Fourth step: assign users to events
+	int user_i = 0, event_i = 0;
+	vector<int> assignment;
+	vector<int> user_count;
+	assignment.resize(num_users, -1);
+	user_count.resize(num_events, 0);
+	for (; user_i < num_users; ++user_i) {
+		int user = users_order[user_i];
+		while (a[user_i] > accu_cap[event_i] && event_i < num_events) {
+			++event_i;
+		}
+		if (event_i <= num_events && user_count[event_i - 1] < events[event_i - 1].get_upper_capacity()) {
+			assignment[user] = event_i - 1;
+			user_count[event_i - 1] += 1;
+		} else {
+			int e;
+			do {
+				e = rand() % num_events;
+			} while (user_count[e] >= events[e].get_upper_capacity());
+			assignment[user] = e;
+			user_count[e] += 1;
+		}
+	}
+
+	return assignment;
+}
+
+vector<int> Process::SA_find_nearby_random_assignment(const vector<int> & current_assignment)
+{
+	vector<int> users_count;
+	users_count.resize(num_events, 0);
+	for (int i = 0; i < current_assignment.size(); ++i) {
+		users_count[current_assignment[i]] += 1;
+	}
+
+	int user = rand() % num_users;
+	int cur_event = current_assignment[user];
+	int next_event;
+	do {
+		next_event = rand() % num_events;
+	} while (users_count[next_event] >= events[next_event].get_upper_capacity());
+
+	vector<int> result = current_assignment;
+	result[user] = next_event;
+	return result;
+}
+
+double Process::SA_calc_accept_new_assignment_prob(const double & delta_cost, const int & T, const double & R)
+{
+	double exponential = -fabs(delta_cost) / (T * R);
+	double result = exp(exponential);
+	return result;
+}
+
 
 
 

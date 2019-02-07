@@ -2,6 +2,7 @@
 #define _PROCESS_H_
 
 #define MAX 999999999
+#define CONST_DIVIDER 65537
 
 #include <iostream>
 #include <fstream>
@@ -18,6 +19,8 @@
 #include <utility>
 #include <limits>
 #include <tuple>
+#include <cmath>
+#include <unistd.h>
 
 class User;
 class Event;
@@ -25,6 +28,7 @@ class UserEventBase;
 class Util;
 class MarginalGainHeap;
 class MarginalGain;
+class Config;
 
 class Process{
 private:
@@ -53,6 +57,8 @@ private:
 	double cut_cost;
 	double clique_cost;
 	double match_utility;
+	
+	clock_t start_clock, end_clock;
 
 public:
 	Process();
@@ -89,6 +95,7 @@ public:
 	void calc_assignments_clique_offline();
 	void calc_assignments_cut_offline();
 	void calc_assignments_exhaustive_offline(const std::string & kind, const double & alpha, const double & beta, const double & gamma);
+	void calc_assignments_annealing_offline(const std::string & kind, const double & alpha, const double & beta, const double & gamma);
 	void calc_assignments_clique_online();
 	void calc_assignments_cut_online();
 
@@ -100,7 +107,9 @@ public:
 
 	// calculate assignment cost
 	double calc_cut_cost(double alpha, double beta, double gamma);
+	double calc_cut_cost(const std::vector<int> & ass, double alpha, double beta, double gamma);
 	double calc_clique_cost(double alpha, double beta, double gamma);
+	double calc_clique_cost(const std::vector<int> & ass, double alpha, double beta, double gamma);
 	// calculate match utility
 	double calc_match_utility(double alpha);
 
@@ -166,6 +175,12 @@ private:
 	// 检查当前的分配是否符合要求
 	bool check_assignments_feasible();
 
+    // 获取运行时间和内存参数
+	double get_running_time_ms();
+	bool is_cut(const std::string & kind);
+	std::string get_memusage_peak();
+	std::string get_pid();
+	
 	// 检查是否可以match用户u和活动v
 	// 需要考虑用户和活动的capacity，以及同一用户所参加活动之间的冲突
 	bool check_match_condition(int user, int event);
@@ -179,6 +194,12 @@ private:
 
 	// 从candidate events里按照utility贪心选择一部分
 	void match_inconflict_events_with_greedy_utility(int user, const std::set<int> & candidate_events, double alpha);
+	
+	// SA_前缀表示模拟退火需要的函数
+	std::vector<int> SA_init_random_assignment();
+	std::vector<int> SA_find_nearby_random_assignment(const std::vector<int> & current_assignment);
+	double SA_calc_accept_new_assignment_prob(const double & delta_cost, const int & T, const double & R);
+	
 };
 
 
