@@ -9,6 +9,7 @@
 #include <iostream>
 #include <fstream>
 #include <limits>
+#include <cctype>
 
 class Util{
 public:
@@ -23,6 +24,9 @@ public:
 
 	// Vector:
 	static double calc_mean(const std::vector<double> & v);
+
+	// string:
+	static std::string to_lower_copy(const std::string& s);
 
 	// parse strings:
 	static std::vector<double> read_line_doubles(const std::string &line);

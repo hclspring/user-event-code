@@ -1,4 +1,4 @@
-bin_PROGRAMS=preprocess clique_offline clique_online cut_offline cut_online compute_cost_to_file compute_cost_to_screen cut_online_specific_arrival exhaustive_offline simulated_annealing_offline online_greedy onlineF_greedy offline_FDTA PDTA
+bin_PROGRAMS=preprocess clique_offline clique_online cut_offline cut_online compute_cost_to_file compute_cost_to_screen cut_online_specific_arrival exhaustive_offline simulated_annealing_offline online_greedy onlineF_greedy offline_FDTA PDTA usereventjob
 INCLUDES = -I/usr/local/include/igraph
 #bin_PROGRAMS=preprocess test
 
@@ -59,3 +59,8 @@ offline_FDTA_SOURCES=offline_FDTA.cc Process.cc Process.h User.cc User.h Event.c
 PDTA_LDADD=-ligraph
 PDTA_LDFLAGS=-static
 PDTA_SOURCES=PDTA.cc Process.cc Process.h User.cc User.h Event.cc Event.h Util.cc Util.h MarginalGainHeap.h MarginalGainHeap.cc MarginalGain.h MarginalGain.cc UserEventBase.h UserEventBase.cc UtilIgraph.h UtilIgraph.cc Config.h Config.cc
+
+usereventjob_LDADD=-ligraph
+usereventjob_LDFLAGS=-static
+usereventjob_SOURCES=main.cc Process.cc Process.h User.cc User.h Event.cc Event.h Util.cc Util.h MarginalGainHeap.h MarginalGainHeap.cc MarginalGain.h MarginalGain.cc UserEventBase.h UserEventBase.cc UtilIgraph.h UtilIgraph.cc Config.h Config.cc RunnerManager.h Runner.h Constant.h UtilConstant.h UtilConstant.cc Parameter.h Parameter.cc StepPreprocess.h StepPreprocess.cc StepCalcAssignment.h StepCalcAssignment.cc StepCalcMatch.h StepCalcMatch.cc StepCalcCost.h StepCalcCost.cc StepNormalize.h StepNormalize.cc
+

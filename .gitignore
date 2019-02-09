@@ -42,6 +42,7 @@ src/onlineF_greedy
 src/offline_FDTA
 src/PDTA
 src/simulated_annealing_offline
+src/usereventjob
 
 # test data
 src/test.cc

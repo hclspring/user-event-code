@@ -64,6 +64,16 @@ double Util::calc_mean(const std::vector<double> & v) {
 	return sum / n;
 }
 
+std::string Util::to_lower_copy(const std::string& s) {
+	std::string res = s;
+	for (int i = 0; i < res.size(); ++i) {
+		if (std::isalpha(res[i]) && std::isupper(res[i])) {
+			res[i] = std::tolower(res[i]);
+		}
+	}
+	return res;
+}
+
 vector<double> Util::read_line_doubles(const string &line)
 {
 	stringstream ss(line);
